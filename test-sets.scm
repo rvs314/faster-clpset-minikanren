@@ -42,6 +42,37 @@
       '(_.0))
 
 ;; Currently failing: set unification not implemented yet
+(test "seto of set-cons works"
+      (run* (q)
+        (seto (set-cons 1 ∅)))
+      '(_.0))
+
+(test "seto of variable works"
+      (run* (q)
+        (seto q))
+      '((_.0 (set _.0))))
+
+(test "set tail must be a set"
+      (run* (q)
+        (seto q)
+        (== q (set-cons 1 2)))
+      '())
+
+(test "set tail may be a variable"
+      (run* (p q)
+        (seto q)
+        (== q (set-cons 1 p)))
+      `(((_.0 ,(set-cons 1 '_.0)) (set _.0))))
+
+(test "sets aren't other things"
+      (run* (q)
+        (seto q)
+        (conde
+         [(symbolo q)]
+         [(numbero q)]
+         [(stringo q)]))
+      '())
+
 ;; (test "set-pair unifies correctly"
 ;;       (run* (q)
 ;;         (== q (set-cons 1 2))

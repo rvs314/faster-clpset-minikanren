@@ -403,23 +403,36 @@
 ; Predicate: Any -> (or #f Any)
 ; CompareResult: (or '< '> '=)
 ; Ordering: T, T -> CompareResult where T is defined by the corresponding predicate.
+; Propagator: T -> Constraint
 
-; Predicate Symbol CompareResult -> TypeConstraint
-(define (type-constraint predicate reified ordering)
-  (list predicate reified ordering))
+; Predicate Symbol CompareResult (or/c #f Propagator) -> TypeConstraint
+(define type-constraint
+  (case-lambda
+    [(predicate reified ordering)
+     (list predicate reified ordering atomic-propagator)]
+    [(predicate reified ordering propagator)
+     (list predicate reified ordering propagator)]))
+
+;; Propagator for atomic values: always succeeds as there is no propagation
+(define (atomic-propagator new-obj)
+  succeed)
 
 (define type-constraint-predicate car)
 (define type-constraint-reified cadr)
 (define type-constraint-ordering caddr)
+(define type-constraint-propagator cadddr)
 
 ; TypeConstraint -> (Term -> Goal)
 (define (apply-type-constraint tc)
   (lambda (u)
     (lambda (st)
-      (let ((type-pred (type-constraint-predicate tc)))
+      (let ((type-pred (type-constraint-predicate tc))
+            (type-prop (type-constraint-propagator tc)))
         (let ((term (walk u (state-S st))))
           (cond
-            ((type-pred term) st)
+            ;; ((type-pred term) st)
+            ((type-pred term)
+             ((type-prop term) st))
             ((var? term)
              (let* ((c (lookup-c st term))
                     (T (c-T c)))
@@ -431,9 +444,10 @@
 
 (define-syntax declare-type-constraints
   (syntax-rules ()
-    ((_ tc-list (name predicate reified ordering) ...)
+    ((_ tc-list (name predicate reified ordering more ...) ...)
      (begin
-       (define tc-list (list (type-constraint predicate 'reified ordering) ...))
+       (define tc-list
+         (list (type-constraint predicate 'reified ordering more ...) ...))
        (define-values
          (name ...)
          (apply values (map apply-type-constraint tc-list)))))))
@@ -443,10 +457,20 @@
 (define (string-compare a b) (cond ((string=? a b) '=) ((string<? a b) '<) (else '>)))
 (define (symbol-compare a b) (string-compare (symbol->string a) (symbol->string b)))
 
+;; Why do I need this - is there a way to opt out?
+(define (set-compare x y)
+  (error 'set-compare "TODO: not implemented" x y))
+
+(define (valid-seto x)
+  (if (set-null? x)
+      succeed
+      (seto (set-rest x))))
+
 (declare-type-constraints type-constraints
   (numbero number? num number-compare)
   (stringo string? str string-compare)
-  (symbolo symbol? sym symbol-compare))
+  (symbolo symbol? sym symbol-compare)
+  (seto    set?    set set-compare    valid-seto))
 
 (define (add-to-D st v d)
   (let* ((c (lookup-c st v))
