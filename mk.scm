@@ -1,3 +1,5 @@
+(load "./sets.scm")
+
 (define always-wrap-reified? (make-parameter #f))
 
 ; Scope object.
@@ -203,6 +205,8 @@
          (ext-s-check v u s)))
       ((var? u) (ext-s-check u v s))
       ((var? v) (ext-s-check v u s))
+      ((and (set-pair? u) (set-pair? v))
+       (error 'unify "Unification of two sets is not implemented yet" u v))
       ((and (pair? u) (pair? v))
        (let-values (((s added-car) (unify (car u) (car v) s)))
          (if s
@@ -230,6 +234,9 @@
   (let ((v (walk v S)))
     (cond
       ((var? v) (var-eq? v x))
+      ((set-pair? v)
+       (or (occurs-check x (set-first v) S)
+           (occurs-check x (set-rest v) S)))
       ((pair? v)
        (or (occurs-check x (car v) S)
            (occurs-check x (cdr v) S)))
@@ -479,17 +486,20 @@
       (let ((st^ ((=/= term1 term2) st)))
         (and st^
              (cond
-               ((pair? term2)
-                (let ((st^^ ((absento term1 (car term2)) st^)))
-                  (and st^^ ((absento term1 (cdr term2)) st^^))))
-               ((var? term2)
-                (let* ((c (lookup-c st^ term2))
-                       (A (c-A c)))
-                  (if (memv term1 A)
-                    st^
-                    (let ((c^ (c-with-A c (cons term1 A))))
-                      (set-c st^ term2 c^)))))
-               (else st^)))))))
+              ((pair? term2)
+               (let ((st^^ ((absento term1 (car term2)) st^)))
+                 (and st^^ ((absento term1 (cdr term2)) st^^))))
+              ((set-pair? term2)
+               (let ((st^^ ((absento term1 (set-first term2)) st^)))
+                 (and st^^ ((absento term1 (set-rest term2)) st^^))))
+              ((var? term2)
+               (let* ((c (lookup-c st^ term2))
+                      (A (c-A c)))
+                 (if (memv term1 A)
+                   st^
+                   (let ((c^ (c-with-A c (cons term1 A))))
+                     (set-c st^ term2 c^)))))
+              (else st^)))))))
 
 ; Fold lst with proc and initial value init. If proc ever returns #f,
 ; return with #f immediately. Used for applying a series of
@@ -526,6 +536,8 @@
   (let ((v (walk v S)))
     (cond
       ((var? v) v)
+      ((set-pair? v)
+       (set-cons (walk* (set-first v) S) (walk* (set-rest v) S)))
       ((pair? v)
        (cons (walk* (car v) S) (walk* (cdr v) S)))
       (else v))))
@@ -566,6 +578,8 @@
   (let rec ((term term) (acc '()))
     (cond
       ((var? term) (cons term acc))
+      ((set-pair? term)
+       (rec (set-first term) (rec (set-rest term) acc)))
       ((pair? term)
        (rec (cdr term) (rec (car term) acc)))
       (else (remove-duplicates acc)))))
@@ -793,7 +807,14 @@
                    (let ((r (lex-compare (car x) (car y))))
                      (if (eq? r '=)
                        (lex-compare (cdr x) (cdr y))
-                       r)))))))
+                       r))))
+      ; sets
+      (,set-null? . ,(lambda (x y) '=))
+      (,set-pair?  . ,(lambda (x y)
+                        (let ((r (lex-compare (set-first x) (set-first y))))
+                          (if (eq? r '=)
+                              (lex-compare (set-rest x) (set-rest y))
+                              r)))))))
 
 (define (index+element-where l pred)
   (let loop ((l l)
