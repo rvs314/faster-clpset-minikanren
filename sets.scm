@@ -34,10 +34,10 @@
    (and (= (set-first x) (set-first y))
         (= (set-rest x) (set-rest y)))))
 
-(record-type-hash-procedure
- (record-type-descriptor set-pair)
- (lambda (x rec-hash)
-   (rec-hash (cons (set-first x) (set-rest x)))))
+;; (record-type-hash-procedure
+;;  (record-type-descriptor set-pair)
+;;  (lambda (x rec-hash)
+;;    (rec-hash (cons (set-first x) (set-rest x)))))
 
 (record-writer
  (record-type-descriptor set-pair)
