@@ -131,16 +131,19 @@
 ;         constraint must be violated to cause failure.
 ;   A - list of absento constraints. Each constraint is a term.
 ;         The list contains no duplicates.
+;   M - list of members. Each constraint is a term.
 
-(define empty-c '(#f () ()))
+(define empty-c '(#f () () ()))
 
 (define (c-T c) (car c))
 (define (c-D c) (cadr c))
 (define (c-A c) (caddr c))
+(define (c-M c) (cadddr c))
 
-(define (c-with-T c T) (list T (c-D c) (c-A c)))
-(define (c-with-D c D) (list (c-T c) D (c-A c)))
-(define (c-with-A c A) (list (c-T c) (c-D c) A))
+(define (c-with-T c T) (list T (c-D c) (c-A c) (c-M c)))
+(define (c-with-D c D) (list (c-T c) D (c-A c) (c-M c)))
+(define (c-with-A c A) (list (c-T c) (c-D c) A (c-M c)))
+(define (c-with-M c M) (list (c-T c) (c-D c) (c-A c) M))
 
 ; Constraint store object.
 ; Mapping of representative variable to constraint record. Constraints
@@ -500,6 +503,28 @@
 (define (=/= u v)
   (=/=* (list (cons u v))))
 
+;; State, Var, Term -> State
+;; Add the constraint that a variable must unify to a term to a state
+(define (add-to-M st v trm)
+  (let* ((c  (lookup-c st v))
+         (c^ (c-with-M c (cons trm (c-M c)))))
+    (set-c st v c^)))
+
+;; Term, Term -> Goal
+;; Holds when `i` is a member of `s` 
+(define (ino i s)
+  (project (s)
+    (cond
+     [(set-pair? s) (conde
+                     ;; possible duplicate introduced here
+                     [(== i (set-first s))]
+                     [(ino i (set-rest s))])]
+     [(var? s)      (fresh ()
+                      (seto s)
+                      (lambda (st)
+                        (add-to-M st s i)))]
+     [else          fail])))
+
 ; Term, Term -> Goal
 ; Generalized 'absento': 'term1' can be any legal term (old version
 ; of faster-miniKanren required 'term1' to be a ground atom).
@@ -554,7 +579,8 @@
             (list ((apply-type-constraint (c-T old-c)) (rhs a)))
             '())
           (map (lambda (atom) (absento atom (rhs a))) (c-A old-c))
-          (map =/=* (c-D old-c))))))))
+          (map =/=* (c-D old-c))
+          (map (lambda (mem) (ino mem (rhs a))) (c-M old-c)))))))) 
 
 (define (walk* v S)
   (let ((v (walk v S)))
@@ -583,6 +609,7 @@
 ; T - type constraints
 ; A - absento constriants
 ; D - disequality constraints
+; M - membership constraints
 
 (define (reify x)
   (lambda (st)
@@ -590,13 +617,14 @@
            (v (walk* x S))
            (R (reify-S v (subst empty-subst-map nonlocal-scope)))
            (relevant-vars (vars v)))
-      (let*-values (((T D A) (extract-and-normalize st relevant-vars x))
+      (let*-values (((T D A M) (extract-and-normalize st relevant-vars x))
                     ((D A)   (drop-irrelevant D A relevant-vars))
                     ((D A)   (drop-subsumed D A st)))
         (form (walk* v R)
               (walk* D R)
               (walk* T R)
-              (walk* A R))))))
+              (walk* A R)
+              (walk* M R))))))
 
 (define (vars term)
   (let rec ((term term) (acc '()))
@@ -628,8 +656,14 @@
                                   x))
                           (c-A (lookup-c st x))))
                    relevant-vars)))
-
-  (values T D A))
+  (define M (append*
+             (map (lambda (x)
+                    (map (lambda (m-lhs)
+                           (cons (walk* m-lhs (state-S st))
+                                 x))
+                         (c-M (lookup-c st x))))
+                  relevant-vars)))
+  (values T D A M))
 
 (define (normalize-diseq S)
   (lambda (S+)
@@ -765,7 +799,7 @@
   (string->symbol
     (string-append "_" "." (number->string n))))
 
-(define (form v D T A)
+(define (form v D T A M)
   (let ((ft (filter-map
               (lambda (p)
                 (let ((tc-type (car p)) (tc-vars (cdr p)))
@@ -773,17 +807,21 @@
                        `(,tc-type . ,(sort-lex tc-vars)))))
               T))
         (fd (sort-D D))
-        (fa (sort-lex A)))
+        (fa (sort-lex A))
+        (fm (sort-lex M)))
     (let ((fd (if (null? fd) fd
                 (let ((fd (drop-dot-D fd)))
                   `((=/= . ,fd)))))
           (fa (if (null? fa) fa
                 (let ((fa (drop-dot fa)))
-                  `((absento . ,fa))))))
+                  `((absento . ,fa)))))
+          (fm (if (null? fm)
+                  fm
+                  `((in ,(cdar fm) ,@(map car fm))))))
       (cond
-        ((and (null? fd) (null? ft) (null? fa) (not (always-wrap-reified?)))
+        ((and (null? fd) (null? ft) (null? fa) (null? fm) (not (always-wrap-reified?)))
          v)
-        (else (append `(,v) fd ft fa))))))
+        (else (append `(,v) fd ft fa fm))))))
 
 (define (sort-lex ls)
   (list-sort lex<=? ls))

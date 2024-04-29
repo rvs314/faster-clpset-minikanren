@@ -1,3 +1,7 @@
+;; Chez-specific code to get better debug info.
+(eval-when (load)
+  (debug-level 3))
+
 (load "./test-check.scm")
 (load "./sets.scm")
 (load "./mk-vicare.scm")
@@ -73,9 +77,60 @@
          [(stringo q)]))
       '())
 
-;; (test "set-pair unifies correctly"
-;;       (run* (q)
-;;         (== q (set-cons 1 2))
-;;         (== (set-cons 1 2) q))
-;;       (list (set-cons 1 2)))
+(test "ino works on set-pairs"
+      (run* (q)
+        (ino 3 (set 2 4 9 3 1)))
+      '(_.0))
+
+(test "ino works on set-nulls"
+      (run* (q)
+        (ino 3 ∅))
+      '())
+
+(test "ino works on variables"
+      (run* (q)
+        (ino 3 q))
+      '((_.0 (set _.0) (in _.0 3))))
+
+(test "ino works on constraint update"
+      (run* (q)
+        (ino 3 q)
+        (== q ∅))
+      '())
+
+(test "ino forces unification eventually"
+      (run* (q r)
+        (ino 3 q)
+        (== q (set-cons r ∅)))
+      `((,(set 3) 3)))
+
+(test "ino respects the pidgeonhole principle"
+      (run* (q r)
+        (== q (set-cons r ∅))
+        (ino 3 q)
+        (ino 4 q))
+      '())
+
+;; Currently failing tests
+
+;; Hypothesis: When a constraint is applied, it can only ever
+;; return a stream of zero or one new states. An intermediate
+;; result of this test is that two states are possible, so
+;; the system freaks out.
+
+#;
+(test "ino respects the pidgeonhole principle (in reverse)"
+      (run* (q r)
+        (ino 3 q)
+        (ino 4 q)
+        (== q (set-cons r ∅)))
+      '())
+
+;; Reason: not implemented
+#;
+(test "set-pair unifies correctly"
+      (run* (q)
+        (== q (set-cons 1 2))
+        (== (set-cons 1 2) q))
+      (list (set-cons 1 2)))
 
