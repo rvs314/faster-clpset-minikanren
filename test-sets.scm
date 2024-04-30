@@ -1,5 +1,6 @@
 ;; Chez-specific code to get better debug info.
 (eval-when (load)
+  (optimize-level 0)
   (debug-level 3))
 
 (load "./test-check.scm")
@@ -111,20 +112,14 @@
         (ino 4 q))
       '())
 
-;; Currently failing tests
-
-;; Hypothesis: When a constraint is applied, it can only ever
-;; return a stream of zero or one new states. An intermediate
-;; result of this test is that two states are possible, so
-;; the system freaks out.
-
-#;
 (test "ino respects the pidgeonhole principle (in reverse)"
       (run* (q r)
         (ino 3 q)
         (ino 4 q)
         (== q (set-cons r ∅)))
       '())
+
+;; Currently failing tests
 
 ;; Reason: not implemented
 #;

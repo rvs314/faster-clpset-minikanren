@@ -390,10 +390,10 @@
 ; C refers to the constraint store map
 ; c refers to an individual constraint record
 
-; Constraint: State -> (or/c #f State)
+; SimpleConstraint: State -> (or/c #f State)
 ;
-; (note that a Constraint is a Goal but a Goal is not a Constraint.
-;  Constraint implementations currently use this more restrained type.
+; (note that a SimpleConstraint is a Goal but a Goal is not a SimpleConstraint.
+;  SimpleConstraint implementations currently use this more restrained type.
 ;  See `and-foldl` and `update-constraints`.)
 
 ; Invariants assumed for type constraints:
@@ -406,7 +406,7 @@
 ; Predicate: Any -> (or #f Any)
 ; CompareResult: (or '< '> '=)
 ; Ordering: T, T -> CompareResult where T is defined by the corresponding predicate.
-; Propagator: T -> Constraint
+; Propagator: T -> SimpleConstraint
 
 ; Predicate Symbol CompareResult (or/c #f Propagator) -> TypeConstraint
 (define type-constraint
@@ -550,6 +550,7 @@
                      (set-c st^ term2 c^)))))
               (else st^)))))))
 
+; (State, Any -> SimpleConstraint), State, List -> SimpleConstraint
 ; Fold lst with proc and initial value init. If proc ever returns #f,
 ; return with #f immediately. Used for applying a series of
 ; constraints to a state, failing if any operation fails.
@@ -559,28 +560,49 @@
     (let ((res (proc (car lst) init)))
       (and res (and-foldl proc res (cdr lst))))))
 
+;; (ListOf Goal) -> Goal
+;; A goal constructor which takes a list of goals, conjoining them in series.
+;; `(then ...)` is equivalent to `(fresh () ...)`, but is a procedure instead of syntax
+;; Equivalent to a variadic `>=>` operator
+(define (then . goals)
+  (define (then2 goal1 goal2)
+    (lambda (st)
+      (bind (goal1 st) goal2)))
+  (foldl then2 succeed goals))
+
+;; State, (ListOf Goal) -> SearchStream
+;; Applies a list of goals to an initial state
+;; `(bind-foldl state (list goal ...))` is equivalent to `(bind* state) goal ...)`,
+;; but is a procedure, rather than syntax
+(define (bind-foldl state goals)
+  ((apply then goals) state))
+
 (define (== u v)
   (lambda (st)
     (let-values (((S^ added) (unify u v (state-S st))))
-      (if S^
-        (and-foldl update-constraints (state S^ (state-C st)) added)
-        #f))))
+      (and S^
+           (let ((st^ (state S^ (state-C st))))
+             (bind-foldl st^ (map update-constraints added)))))))
 
-; Not fully optimized. Could do absento update with fewer
-; hash-refs / hash-sets.
-(define (update-constraints a st)
-  (let ((old-c (lookup-c st (lhs a))))
-    (if (eq? old-c empty-c)
-      st
-      (let ((st (remove-c (lhs a) st)))
-       (and-foldl (lambda (op st) (op st)) st
-        (append
-          (if (c-T old-c)
-            (list ((apply-type-constraint (c-T old-c)) (rhs a)))
-            '())
-          (map (lambda (atom) (absento atom (rhs a))) (c-A old-c))
-          (map =/=* (c-D old-c))
-          (map (lambda (mem) (ino mem (rhs a))) (c-M old-c)))))))) 
+;; Association -> Goal
+;; Given a new association, return a goal which is its logical consequence,
+;; WRT the given constraint
+(define (update-constraints a)
+  ;; Not fully optimized. Could do absento update with fewer
+  ;; hash-refs / hash-sets.
+  (lambda (st)
+    (let ((old-c (lookup-c st (lhs a))))
+      (if (eq? old-c empty-c)
+        st
+        (let ((st (remove-c (lhs a) st)))
+          (bind-foldl st
+                      (append
+                        (if (c-T old-c)
+                            (list ((apply-type-constraint (c-T old-c)) (rhs a)))
+                            '())
+                        (map (lambda (atom) (absento atom (rhs a))) (c-A old-c))
+                        (map =/=* (c-D old-c))
+                        (map (lambda (mem) (ino mem (rhs a))) (c-M old-c))))))))) 
 
 (define (walk* v S)
   (let ((v (walk v S)))
@@ -599,9 +621,8 @@
        (let ((x (walk* x (state-S st))) ...)
          ((fresh () g g* ...) st))))))
 
-(define succeed (== #f #f))
-(define fail (== #f #t))
-
+(define succeed (lambda (x) x))
+(define fail (lambda _ #f))
 
 ; Reification
 
