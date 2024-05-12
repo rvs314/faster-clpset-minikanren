@@ -256,8 +256,13 @@
 
 ; Search
 
-; SearchStream: #f | SuspendedStream | State | (Pair State SuspendedStream)
-; SuspendedStream: (-> SearchStream)
+; For some type a ∌ #f, (StreamOf b), (Pair b Procedure)
+; (StreamOf a): #f | (SuspendedStreamOf a) | a | (Pair a (SuspendedStreamOf a))
+; (SuspendedStreamOf a): (-> (StreamOf a))
+; SearchStream: (StreamOf State)
+; SuspendedStream: (SuspendedStreamOf State)
+; (Expansion a): (a -> (StreamOf a))
+; Goal: (Expansion State)
 
 ; Match on search streams. The State type must not be a pair with a procedure
 ; in its cdr, lest a single result be interpreted as multiple results.
@@ -285,7 +290,7 @@
          (else (let ((c (car stream)) (f (cdr stream)))
                  e3)))))))
 
-; SearchStream, SuspendedStream -> SearchStream,
+; (SearchStreamOf a), (SuspendedStreamOf a) -> (SearchStream a),
 ;
 ; f is a thunk to avoid unnecesarry computation in the case that the
 ; first answer produced by c-inf is enough to satisfy the query.
@@ -296,7 +301,7 @@
     ((c) (cons c f))
     ((c f^) (cons c (lambda () (mplus (f) f^))))))
 
-; SearchStream, Goal -> SearchStream
+; (SearchStreamOf a), (a -> (SearchStreamOf a)) -> (SearchStreamOf a)
 (define (bind stream g)
   (case-inf stream
     (() #f)
@@ -304,7 +309,7 @@
     ((c) (g c))
     ((c f) (mplus (g c) (lambda () (bind (f) g))))))
 
-; Int, SuspendedStream -> (ListOf SearchResult)
+; Int, (SuspendedStreamOf a) -> (ListOf a)
 (define (take n f)
   (if (and n (zero? n))
     '()
@@ -314,18 +319,18 @@
       ((c) (cons c '()))
       ((c f) (cons c (take (and n (- n 1)) f))))))
 
-; (bind* e:SearchStream g:Goal ...) -> SearchStream
+; (bind* e:(SearchStreamOf a) g:(Expander a) ...) -> (SearchStreamOf a)
 (define-syntax bind*
   (syntax-rules ()
     ((_ e) e)
     ((_ e g0 g ...) (bind* (bind e g0) g ...))))
 
-; (suspend e:SearchStream) -> SuspendedStream
+; (suspend e:(SearchStreamOf a)) -> (SuspendedStreamOf a)
 ; Used to clearly mark the locations where search is suspended in order to
 ; interleave with other branches.
 (define-syntax suspend (syntax-rules () ((_ body) (lambda () body))))
 
-; (mplus* e:SearchStream ...+) -> SearchStream
+; (mplus* e:(SearchStreamOf a) ...+) -> (SearchStreamOf a)
 (define-syntax mplus*
   (syntax-rules ()
     ((_ e) e)
