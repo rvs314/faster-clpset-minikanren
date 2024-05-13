@@ -12,6 +12,14 @@
 (define-record-type node (fields e o))
 (define-record-type data (fields idx val))
 
+(record-writer (record-type-descriptor data)
+               (lambda (r p wr)
+                 (display "(make-data " p)
+                 (write (data-idx r) p)
+                 (display " " p)
+                 (write (data-val r) p)
+                 (display ")" p)))
+
 (define shift (lambda (n) (fxsra n 1)))
 (define unshift (lambda (n i) (fx+ (fxsll n 1) i)))
 
@@ -32,8 +40,9 @@
   (define len1 (fxmax len0 (fx+ idx 1)))
   (define result (make-vector len1 '()))
   (let copy ((ci 0))
-    (if (fx=? len0 ci) (begin (vector-set! result idx val) result)
-      (begin (vector-set! result ci (vector-ref nd ci)) (copy (fx+ ci 1))))))
+    (if (fx=? len0 ci)
+        (begin (vector-set! result idx val) result)
+        (begin (vector-set! result ci (vector-ref nd ci)) (copy (fx+ ci 1))))))
 
 (define (nwt:size trie)
   (cond
@@ -89,6 +98,14 @@
       unbound)))
 (define (intmap-set m k v) (t:bind k v m))
 
+(define (intmap->list trie)
+  (let loop ([acc '()] [trie trie])
+    (cond
+     [(node-n? trie) (vector-foldl loop acc trie)]
+     [(data? trie)   (cons (cons (data-idx trie) (data-val trie))
+                           acc)]
+     [(null? trie)   '()]
+     [else           (error 'intmap->list "Invalid trie" trie)])))
 
 ; Misc. missing functions
 
@@ -106,6 +123,12 @@
     (foldl f
            (f (car seq) init)
            (cdr seq))))
+
+(define (vector-foldl f init vect)
+  (let loop ([acc init] [i 0])
+    (if (= (vector-length vect) i)
+        acc
+        (loop (f acc (vector-ref vect i)) (add1 i)))))
 
 (define (filter-map f l) (filter (lambda (x) x) (map f l)))
 
