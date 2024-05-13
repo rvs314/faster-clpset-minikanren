@@ -191,17 +191,17 @@
 
 ; Unification
 
-; UnificationResult: (or/c (values Substitution (Listof Association))
-;                          (values #f #f)
-; An extended substitution and a list of associations added during the unification,
-;  or (values #f #f) indicating unification failed.
+; UnificationResult: (Streamof (Pair Substitution (Listof Association)))
+; A stream of extended substitutions and lists of associations added during the unification,
+;  or the empty stream, indicating unification failed.
+; This may have any number of elements, but should be finite.
 
 ; Term, Term, Substitution -> UnificationResult
 (define (unify u v s)
   (let ((u (walk u s))
         (v (walk v s)))
     (cond
-      ((eq? u v) (values s '()))
+      ((eq? u v) (cons s '()))
       ((and (var? u) (var? v))
        (if (> (var-idx u) (var-idx v))
          (ext-s-check u v s)
@@ -211,16 +211,11 @@
       ((and (set-pair? u) (set-pair? v))
        (error 'unify "Unification of two sets is not implemented yet" u v))
       ((and (pair? u) (pair? v))
-       (let-values (((s added-car) (unify (car u) (car v) s)))
-         (if s
-           (let-values (((s added-cdr) (unify (cdr u) (cdr v) s)))
-             ; Right now appends the list of added values from sub-unifications.
-             ; Alternatively could be threaded monadically, which could be faster
-             ; or slower.
-             (values s (append added-car added-cdr)))
-           (values #f #f))))
-      ((equal? u v) (values s '()))
-      (else (values #f #f)))))
+       (let*-bind ([s.added-car (unify (car u) (car v) s)]
+                   [s.added-cdr (unify (cdr u) (cdr v) (car s.added-car))])
+         (cons (car s.added-cdr) (append (cdr s.added-car) (cdr s.added-cdr)))))
+      ((equal? u v) (cons s '()))
+      (else #f))))
 
 ; Term, Substitution -> Term
 (define (walk u S)
@@ -248,20 +243,21 @@
 ; Var, Term, Substitution -> UnificationResult
 (define (ext-s-check x v S)
   (if (occurs-check x v S)
-    (values #f #f)
-    (values (subst-add S x v) (list (cons x v)))))
+      #f
+      (cons (subst-add S x v) (list (cons x v)))))
 
+; Term, Term, Substitution -> UnificationResult
 (define (unify* S+ S)
   (unify (map lhs S+) (map rhs S+) S))
 
 ; Search
 
-; For some type a ∌ #f, (StreamOf b), (Pair b Procedure)
-; (StreamOf a): #f | (SuspendedStreamOf a) | a | (Pair a (SuspendedStreamOf a))
-; (SuspendedStreamOf a): (-> (StreamOf a))
-; SearchStream: (StreamOf State)
-; SuspendedStream: (SuspendedStreamOf State)
-; (Expansion a): (a -> (StreamOf a))
+; For some type a ∌ #f, (Streamof b), (Pair b Procedure)
+; (Streamof a): #f | (SuspendedStreamof a) | a | (Pair a (SuspendedStreamof a))
+; (SuspendedStreamof a): (-> (Streamof a))
+; SearchStream: (Streamof State)
+; SuspendedStream: (SuspendedStreamof State)
+; (Expansion a): (a -> (Streamof a))
 ; Goal: (Expansion State)
 
 ; Match on search streams. The State type must not be a pair with a procedure
@@ -290,7 +286,7 @@
          (else (let ((c (car stream)) (f (cdr stream)))
                  e3)))))))
 
-; (SearchStreamOf a), (SuspendedStreamOf a) -> (SearchStream a),
+; (Streamof a), (SuspendedStreamof a) -> (SearchStream a),
 ;
 ; f is a thunk to avoid unnecesarry computation in the case that the
 ; first answer produced by c-inf is enough to satisfy the query.
@@ -301,7 +297,7 @@
     ((c) (cons c f))
     ((c f^) (cons c (lambda () (mplus (f) f^))))))
 
-; (SearchStreamOf a), (a -> (SearchStreamOf a)) -> (SearchStreamOf a)
+; (Streamof a), (Expander a) -> (Streamof a)
 (define (bind stream g)
   (case-inf stream
     (() #f)
@@ -309,28 +305,47 @@
     ((c) (g c))
     ((c f) (mplus (g c) (lambda () (bind (f) g))))))
 
-; Int, (SuspendedStreamOf a) -> (ListOf a)
+; Int, (Streamof a) -> (Listof a)
 (define (take n f)
   (if (and n (zero? n))
-    '()
-    (case-inf (f)
-      (() '())
-      ((f) (take n f))
-      ((c) (cons c '()))
-      ((c f) (cons c (take (and n (- n 1)) f))))))
+      '()
+      (case-inf f
+        (() '())
+        ((f) (take n (f)))
+        ((c) (cons c '()))
+        ((c f) (cons c (take (and n (- n 1)) (f)))))))
 
-; (bind* e:(SearchStreamOf a) g:(Expander a) ...) -> (SearchStreamOf a)
+#|
+A macro for writing code with multiple `bind` calls akin to `do` notation in haskell.
+Each LHS of the binders is bound to each of the values on the stream produced by the RHS.
+The scope of each RHS has access to prior binders, à la let*
+|#
+(define-syntax let*-bind
+  (syntax-rules ()
+    [(let*-bind ()
+       body body* ...)
+     (let ()
+       body body* ...)]
+    [(let*-bind ([first-name first-value] more-clauses ...)
+       body body* ...)
+     (bind
+      first-value
+      (lambda (first-name)
+        (let*-bind (more-clauses ...)
+          body body* ...)))]))
+
+; (bind* e:(Streamof a) g:(Expander a) ...) -> (Streamof a)
 (define-syntax bind*
   (syntax-rules ()
     ((_ e) e)
     ((_ e g0 g ...) (bind* (bind e g0) g ...))))
 
-; (suspend e:(SearchStreamOf a)) -> (SuspendedStreamOf a)
+; (suspend e:(Streamof a)) -> (SuspendedStreamof a)
 ; Used to clearly mark the locations where search is suspended in order to
 ; interleave with other branches.
 (define-syntax suspend (syntax-rules () ((_ body) (lambda () body))))
 
-; (mplus* e:(SearchStreamOf a) ...+) -> (SearchStreamOf a)
+; (mplus* e:(Streamof a) ...+) -> (Streamof a)
 (define-syntax mplus*
   (syntax-rules ()
     ((_ e) e)
@@ -485,24 +500,22 @@
          (c^ (c-with-D c (cons d (c-D c)))))
     (set-c st v c^)))
 
-; (ListOf Association) -> Goal
+; (Listof Association) -> Goal
 (define (=/=* S+)
   (lambda (st)
-    (let-values (((S added) (unify* S+ (subst-with-scope
-                                         (state-S st)
-                                         nonlocal-scope))))
-      (cond
-        ((not S) st)
-        ((null? added) #f)
-        (else
-          ; Attach the constraint to variables in of the disequality elements
-          ; (el).  We only need to choose one because all elements must fail to
-          ; cause the constraint to fail.
-          (let ((el (car added)))
-            (let ((st (add-to-D st (car el) added)))
-              (if (var? (cdr el))
-                (add-to-D st (cdr el) added)
-                st))))))))
+    (let ((S.added-inf (unify* S+ (subst-with-scope (state-S st) nonlocal-scope))))
+      (fold-inf
+       (lambda (st S.added)
+         (and st
+              (let ((added (cdr S.added)))
+                (and (pair? added)
+                     (let* ([el (car added)]
+                            [st (add-to-D st (car el) added)])
+                       (if (var? (cdr el))
+                           (add-to-D st (cdr el) added)
+                           st))))))
+       st
+       S.added-inf))))
 
 ; Term, Term -> Goal
 (define (=/= u v)
@@ -565,7 +578,7 @@
     (let ((res (proc (car lst) init)))
       (and res (and-foldl proc res (cdr lst))))))
 
-;; (ListOf Goal) -> Goal
+;; (Listof (Expander a)) -> (Expander a)
 ;; A goal constructor which takes a list of goals, conjoining them in series.
 ;; `(then ...)` is equivalent to `(fresh () ...)`, but is a procedure instead of syntax
 ;; Equivalent to a variadic `>=>` operator
@@ -575,19 +588,41 @@
       (bind (goal1 st) goal2)))
   (foldl then2 succeed goals))
 
-;; State, (ListOf Goal) -> SearchStream
+;; a, (Listof Goal) -> SearchStream
 ;; Applies a list of goals to an initial state
-;; `(bind-foldl state (list goal ...))` is equivalent to `(bind* state) goal ...)`,
+;; `(bind-foldl state (list goal ...))` is equivalent to `(bind* state goal ...)`,
 ;; but is a procedure, rather than syntax
 (define (bind-foldl state goals)
   ((apply then goals) state))
 
+;; (acc elem -> acc) acc (Streamof elem) -> acc
+;; Folds the accumulator over a stream of values
+;; This forces the stream, so it must be finite
+(define (fold-inf proc init strm)
+  (case-inf strm
+    [()    init]
+    [(f)   (fold-inf poc init (f))]
+    [(c)   (proc init c)]
+    [(c f) (let ((init^ (proc init c)))
+             (fold-inf proc init^ (f)))]))
+
+;; (in -> out) -> Streamof in -> Streamof out
+;; Maps the stream over a given procedure
+(define (map-inf proc strm)
+  (case-inf strm
+    [()    #f]
+    [(f)   (suspend (map-inf proc (f)))]
+    [(c)   (proc c)]
+    [(c f) (cons (proc c) (suspend (map-inf proc (f))))]))
+
 (define (== u v)
   (lambda (st)
-    (let-values (((S^ added) (unify u v (state-S st))))
-      (and S^
-           (let ((st^ (state S^ (state-C st))))
-             (bind-foldl st^ (map update-constraints added)))))))
+    (let*-bind ([S^.added (unify u v (state-S st))])
+      ;; TODO: test this code
+      (let* ([S^    (car S^.added)]
+             [added (cdr S^.added)]
+             [st^ (state S^ (state-C st))])
+        (bind-foldl st^ (map update-constraints added))))))
 
 ;; Association -> Goal
 ;; Given a new association, return a goal which is its logical consequence,
@@ -693,8 +728,11 @@
 
 (define (normalize-diseq S)
   (lambda (S+)
-    (let-values (((S^ S+^) (unify* S+ S)))
-      (and S^ (walk* S+^ S)))))
+    (case-inf (unify* S+ S)
+      [()    #f]
+      [(f)   (error 'normalize-diseq "Normalizing unification is suspended")]
+      [(c)   (walk* (cdr c) S)]
+      [(c f) (error 'normalize-diseq "Normalizing unification is divergent")])))
 
 ; Drop constraints that are satisfiable in any assignment of the reified
 ; variables, because they refer to unassigned variables that are not part of
@@ -803,9 +841,15 @@
 ;  * ((a . 5) (b . 6)) is subsumed by ((a . 5)) because (not (== a 5)) is a stronger constraint
 ;    than (not (and (== a 5) (== b 6)))
 (define (d-subsumed-by? d1 d2)
-  (let*-values (((S ignore) (unify* d1 (subst empty-subst-map nonlocal-scope)))
-                ((S+ added) (unify* d2 S)))
-               (and S+ (null? added))))
+  ;; All the different ways d1 can possibly unify
+  (define unifications (map-inf car (unify* d1 (subst empty-subst-map nonlocal-scope))))
+
+  (fold-inf
+   (lambda (acc elem) (or acc elem))
+   #f
+   (let*-bind ((S        unifications)
+               (S+.added (unify* d2 S)))
+     (null? (cdr S+.added)))))
 
 (define (reify-S v S)
   (let ((v (walk v S)))
