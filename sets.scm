@@ -39,24 +39,6 @@
 ;;  (lambda (x rec-hash)
 ;;    (rec-hash (cons (set-first x) (set-rest x)))))
 
-(record-writer
- (record-type-descriptor set-pair)
- (lambda (obj prt wrt)
-   (display-string "{" prt)
-   (wrt (set-first obj) prt)
-   (let loop ([obj (set-rest obj)])
-     (cond
-      [(set-pair? obj)
-       (display-string " " prt)
-       (wrt (set-first obj) prt)
-       (loop (set-rest obj))]
-      [(set-null? obj)
-       (display-string "}" prt)]
-      [else
-       (display-string " | " prt)
-       (wrt obj prt)
-       (display-string "}" prt)]))))
-
 (define-values (set->list list->set)
   (let ([X->Y (lambda (X-first X-rest X-null? X-pair? Y-cons Y-null) 
                 (define (loop obj)
