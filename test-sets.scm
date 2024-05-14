@@ -91,7 +91,7 @@
 (test "ino works on variables"
       (run* (q)
         (ino 3 q))
-      '((_.0 (set _.0) (in _.0 3))))
+      `((,(set-cons 3 '_.0) (set _.0))))
 
 (test "ino works on constraint update"
       (run* (q)
@@ -119,13 +119,8 @@
         (== q (set-cons r ∅)))
       '())
 
-;; Currently failing tests
-
-;; Reason: not implemented
-#;
-(test "set-pair unifies correctly"
+(test "literal sets unify correctly"
       (run* (q)
-        (== q (set-cons 1 2))
-        (== (set-cons 1 2) q))
-      (list (set-cons 1 2)))
+        (== (set-cons 1 2) (set-cons 1 2)))
+      '(_.0))
 

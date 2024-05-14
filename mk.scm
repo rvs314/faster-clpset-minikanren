@@ -209,7 +209,26 @@
       ((var? u) (ext-s-check u v s))
       ((var? v) (ext-s-check v u s))
       ((and (set-pair? u) (set-pair? v))
-       (error 'unify "Unification of two sets is not implemented yet" u v))
+       (let ([t (set-first u)]
+             [r (set-rest u)]
+             [t^ (set-first v)]
+             [r^ (set-rest v)])
+         (mplus*
+          (unify* `([,t . ,t^]
+                    [,r . ,r^])
+                  s)
+          (unify* `([,t . ,t^]
+                    [,u . ,r^])
+                  s)
+          (unify* `([,t . ,t^]
+                    [,r . ,v])
+                  s)
+          (let ([N (var (car s))])
+            ;; FIXME: this normally includes a set type-constraint on N
+            ;; I'm leaving it out right now, but it needs to be added later
+            (unify* `([,r  . ,(set-cons t^ N)]
+                      [,r^ . ,(set-cons t N)])
+                    s)))))
       ((and (pair? u) (pair? v))
        (let*-bind ([s.added-car (unify (car u) (car v) s)]
                    [s.added-cdr (unify (cdr u) (cdr v) (car s.added-car))])
@@ -537,10 +556,9 @@ The scope of each RHS has access to prior binders, à la let*
                      ;; possible duplicate introduced here
                      [(== i (set-first s))]
                      [(ino i (set-rest s))])]
-     [(var? s)      (fresh ()
-                      (seto s)
-                      (lambda (st)
-                        (add-to-M st s i)))]
+     [(var? s)      (fresh (k)
+                      (seto k)
+                      (== s (set-cons i k)))]
      [else          fail])))
 
 ; Term, Term -> Goal
@@ -618,7 +636,6 @@ The scope of each RHS has access to prior binders, à la let*
 (define (== u v)
   (lambda (st)
     (let*-bind ([S^.added (unify u v (state-S st))])
-      ;; TODO: test this code
       (let* ([S^    (car S^.added)]
              [added (cdr S^.added)]
              [st^ (state S^ (state-C st))])
@@ -727,6 +744,10 @@ The scope of each RHS has access to prior binders, à la let*
   (values T D A M))
 
 (define (normalize-diseq S)
+  ;; FIXME:
+  ;; The `error` calls here are from generalizing UnificationResult
+  ;; I'm not 100% sure how this procedure should be generalized,
+  ;; so I'm adding errors in the new cases.
   (lambda (S+)
     (case-inf (unify* S+ S)
       [()    #f]
@@ -858,6 +879,9 @@ The scope of each RHS has access to prior binders, à la let*
        (let ((n (subst-length S)))
          (let ((name (reify-name n)))
            (subst-add S v name))))
+      ((set-pair? v)
+       (let ((S (reify-S (set-first v) S)))
+         (reify-S (set-rest v) S)))
       ((pair? v)
        (let ((S (reify-S (car v) S)))
          (reify-S (cdr v) S)))
