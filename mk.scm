@@ -334,6 +334,15 @@
         ((c) (cons c '()))
         ((c f) (cons c (take (and n (- n 1)) (f)))))))
 
+(define (list->stream lst)
+  (cond
+   [(null? lst) #f]
+   [(pair? lst) (let ([rest (list->stream (cdr lst))])
+                  (cons (car lst) (suspend rest)))]))
+
+(define (stream . xs)
+  (list->stream xs))
+
 #|
 A macro for writing code with multiple `bind` calls akin to `do` notation in haskell.
 Each LHS of the binders is bound to each of the values on the stream produced by the RHS.
