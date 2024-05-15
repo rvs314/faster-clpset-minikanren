@@ -1,55 +1,93 @@
-(define-record-type set-null
+(define-record-type null-set
   (protocol
    (lambda (new)
      (let ([canonical (new)])
        (lambda ()
          canonical)))))
 
-(define ∅         (make-set-null))
-(define empty-set (make-set-null))
+(define set-null? null-set?)
+
+(define ∅         (make-null-set))
+(define empty-set (make-null-set))
 
 (record-type-equal-procedure
- (record-type-descriptor set-null)
+ (record-type-descriptor null-set)
  eq?)
 
 (record-type-hash-procedure
- (record-type-descriptor set-null)
+ (record-type-descriptor null-set)
  (lambda _ 0))
 
 (record-writer
- (record-type-descriptor set-null)
+ (record-type-descriptor null-set)
  (lambda (obj prt wrt)
    (display-string "∅" prt)))
 
-(define-record-type (set-pair set-cons set-pair?)
-  (fields (immutable first set-first)
-          (immutable rest set-rest)))
+(define-record-type nonempty-set
+  (fields head tail)
+  (protocol
+   (lambda (new)
+     (lambda (head tail)
+       (if (null? head)
+           tail
+           (new head tail))))))
+
+(define (set-head st)
+  (if (nonempty-set? st)
+      (nonempty-set-head st)
+      '()))
+
+(define (set-tail st)
+  (if (nonempty-set? st)
+      (nonempty-set-tail st)
+      st))
+
+(define (set-parts st)
+  (values (set-head st) (set-tail st)))
+
+(define set-pair? nonempty-set?)
+
+(define (set-first set)
+  (car (nonempty-set-head set)))
+
+(define (set-rest set)
+  (make-nonempty-set
+   (cdr (nonempty-set-head set))
+   (nonempty-set-tail set)))
+
+(define (set-cons elem set)
+  (if (nonempty-set? set)
+      (make-nonempty-set
+       (cons elem (nonempty-set-head set))
+       (nonempty-set-tail set))
+      (make-nonempty-set
+       (list elem)
+       set)))
 
 (define (set? obj)
-  (or (set-null? obj) (set-pair? obj)))
+  (or (null-set? obj) (set-pair? obj)))
 
 (record-type-equal-procedure
- (record-type-descriptor set-pair)
+ (record-type-descriptor nonempty-set)
  (lambda (x y =)
-   (and (= (set-first x) (set-first y))
-        (= (set-rest x) (set-rest y)))))
+   (and (= (set-head x) (set-head y))
+        (= (set-tail x) (set-tail y)))))
 
-;; (record-type-hash-procedure
-;;  (record-type-descriptor set-pair)
-;;  (lambda (x rec-hash)
-;;    (rec-hash (cons (set-first x) (set-rest x)))))
+(record-writer
+ (record-type-descriptor nonempty-set)
+ (lambda (obj prt wrt)
+   (wrt `(nonempty-set ,(nonempty-set-head obj) ,(nonempty-set-tail obj))
+        prt)))
 
-(define-values (set->list list->set)
-  (let ([X->Y (lambda (X-first X-rest X-null? X-pair? Y-cons Y-null) 
-                (define (loop obj)
-                  (cond [(X-null? obj) Y-null]
-                        [(X-pair? obj) (Y-cons (X-first obj)
-                                               (loop (X-rest obj)))]
-                        [else          obj]))
-                loop)])
-    (values
-     (X->Y set-first set-rest set-null? set-pair? cons '())
-     (X->Y car       cdr      null?     pair?     set-cons ∅))))
+(define (set->list set)
+  (cond
+   [(nonempty-set? set) (append (nonempty-set-head set)
+                                (set->list (nonempty-set-tail set)))]
+   [(null-set? set)     '()]
+   [else                set]))
+
+(define (list->set lst)
+  (make-nonempty-set lst ∅))
 
 (define (set . xs)
   (list->set xs))

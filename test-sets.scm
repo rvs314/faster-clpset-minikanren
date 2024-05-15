@@ -46,7 +46,6 @@
         (seto ∅))
       '(_.0))
 
-;; Currently failing: set unification not implemented yet
 (test "seto of set-cons works"
       (run* (q)
         (seto (set-cons 1 ∅)))
@@ -119,8 +118,31 @@
         (== q (set-cons r ∅)))
       '())
 
+;; The duplicate generation is undesirable and should
+;; be removed in the future
+
+(test "ino generates duplicates"
+      (run* (q)
+        (fresh (k)
+          (== k (set-cons 1 q))
+          (ino 1 k)))
+      `(_.0 (,(set-cons 1 '_.0) (set _.0))))
+
+(test "ino generates duplicates (2)"
+      (run* (q)
+        (ino q (set 1 1 1 1)))
+      '(1 1 1 1))
+
 (test "literal sets unify correctly"
       (run* (q)
-        (== (set-cons 1 2) (set-cons 1 2)))
+        (== (set 1 2) (set 1 2)))
       '(_.0))
 
+(define (unique elms)
+  (sort-lex (remove-duplicates elms)))
+
+(test "partially instantiated sets unify correctly"
+      (unique
+       (run* (q)
+         (== (set 1 q) (set 1 q))))
+      '(1 _.0))

@@ -189,6 +189,111 @@
   (lambda (st new-scope)
     (state (subst-with-scope (state-S st) new-scope) (state-C st))))
 
+#|
+Given a procedure and a list, for each element of the list,
+Calls the procedure with a reversed list of elements to the left,
+that element, then the elements to the right.
+
+Ex:
+
+> (map-zipper list '(1 2 3 4 5))
+
+((() 1 (2 3 4 5))
+ ((1) 2 (3 4 5))
+ ((2 1) 3 (4 5))
+ ((3 2 1) 4 (5))
+ ((4 3 2 1) 5 ()))
+|#
+(define (map-zipper proc lst)
+  (let loop ([acc   '()]
+             [left  '()]
+             [right lst])
+    (if (null? right)
+        (reverse! acc)
+        (loop (cons (proc left (car right) (cdr right)) acc)
+              (cons (car right) left)
+              (cdr right)))))
+
+(define (normalize-set set s)
+  (cond
+   [(null-set? set)     set]
+   [(nonempty-set? set) (make-nonempty-set
+                         (set-head set)
+                         (normalize-set (set-tail set) s))]
+   [(var? set)
+    (let ([walked (walk set s)])
+      (if (eq? walked set)
+          walked
+          (normalize-set walked s)))]
+   [else                (error 'normalize-set "set is not well-formed" set)]))
+
+(define (unify-sets set set^ s)
+  (define-values (head  tail)  (set-parts (normalize-set set  s)))
+  (define-values (head^ tail^) (set-parts (normalize-set set^ s)))
+
+  ;; When values share a tail, we can induct over one of the sets'
+  ;; known elements
+  ;; Rule 10 of Dovier et. al
+  (define (set-induction)
+    ;; Just for shorthand
+    (define $ make-nonempty-set)
+
+    (let ([X tail] [t0 (car head)] [t1..m (cdr head)])
+      (foldl
+       mplus
+       #f
+       (map-zipper
+        (lambda (t^j-1..0 t^j t^j+1..n)
+          (let ([head^-t^j (append t^j-1..0 t^j+1..n)]
+                [N         (var (car s))]
+                [s         (subst-with-scope s (new-scope))])
+            (mplus*
+             (unify* `([,t0          . ,t^j]
+                       [,($ t1..m X) . ,($ head^-t^j X)])
+                     s)
+             (unify* `([,t0          . ,t^j]
+                       [,($ head X)  . ,($ head^-t^j X)])
+                     s)
+             (unify* `([,t0    . ,t^j]
+                       [,($ t1..m X) . ,($ head^ X)])
+                     s)
+             ;; TODO: this normally includes a set type-constraint on N
+             ;; I'm leaving it out right now, but it needs to be added later
+             (unify* `([,tail^       . ,(set-cons t0 N)]
+                       [,($ t1..m N) . ,($ head^ N)])
+                     s))))
+        head^))))
+
+  ;; When values don't share a tail, we have to enumerate all possible
+  ;; set combinations
+  ;; Rule 9 of Dovier et. al
+  (define (set-enumeration)
+    (let ([t  (set-first set)]
+          [r  (set-rest  set)]
+          [t^ (set-first set^)]
+          [r^ (set-rest  set^)]
+          [N  (var (car s))]
+          [s  (subst-with-scope s (new-scope))])
+      (mplus*
+       (unify* `([,t . ,t^]
+                 [,r . ,r^])
+               s)
+       (unify* `([,t   . ,t^]
+                 [,set . ,r^])
+               s)
+       (unify* `([,t . ,t^]
+                 [,r . ,set^])
+               s)
+       ;; TODO: this normally includes a set type-constraint on N
+       ;; I'm leaving it out right now, but it needs to be added later
+       (unify* `([,r  . ,(set-cons t^ N)]
+                 [,r^ . ,(set-cons t N)])
+               s))))
+
+  (if (eq? tail tail^)
+      (set-induction)
+      (set-enumeration)))
+  
 ; Unification
 
 ; UnificationResult: (Streamof (Pair Substitution (Listof Association)))
@@ -208,27 +313,7 @@
          (ext-s-check v u s)))
       ((var? u) (ext-s-check u v s))
       ((var? v) (ext-s-check v u s))
-      ((and (set-pair? u) (set-pair? v))
-       (let ([t (set-first u)]
-             [r (set-rest u)]
-             [t^ (set-first v)]
-             [r^ (set-rest v)])
-         (mplus*
-          (unify* `([,t . ,t^]
-                    [,r . ,r^])
-                  s)
-          (unify* `([,t . ,t^]
-                    [,u . ,r^])
-                  s)
-          (unify* `([,t . ,t^]
-                    [,r . ,v])
-                  s)
-          (let ([N (var (car s))])
-            ;; FIXME: this normally includes a set type-constraint on N
-            ;; I'm leaving it out right now, but it needs to be added later
-            (unify* `([,r  . ,(set-cons t^ N)]
-                      [,r^ . ,(set-cons t N)])
-                    s)))))
+      ((and (set-pair? u) (set-pair? v)) (unify-sets u v s))
       ((and (pair? u) (pair? v))
        (let*-bind ([s.added-car (unify (car u) (car v) s)]
                    [s.added-cdr (unify (cdr u) (cdr v) (car s.added-car))])
@@ -309,7 +394,8 @@
 ;
 ; f is a thunk to avoid unnecesarry computation in the case that the
 ; first answer produced by c-inf is enough to satisfy the query.
-(define (mplus stream f)
+(define (mplus stream f^)
+  (define f (if (procedure? f^) f^ (suspend f^)))
   (case-inf stream
     (() (f))
     ((f^) (lambda () (mplus (f) f^)))
@@ -513,7 +599,7 @@ The scope of each RHS has access to prior binders, à la let*
   (error 'set-compare "TODO: not implemented" x y))
 
 (define (valid-seto x)
-  (if (set-null? x)
+  (if (null-set? x)
       succeed
       (seto (set-rest x))))
 
