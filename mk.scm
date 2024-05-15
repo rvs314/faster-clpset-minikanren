@@ -594,9 +594,16 @@ The scope of each RHS has access to prior binders, à la let*
 (define (string-compare a b) (cond ((string=? a b) '=) ((string<? a b) '<) (else '>)))
 (define (symbol-compare a b) (string-compare (symbol->string a) (symbol->string b)))
 
-;; Why do I need this - is there a way to opt out?
 (define (set-compare x y)
-  (error 'set-compare "TODO: not implemented" x y))
+  (cond
+   [(and (set-null? x) (set-null? y)) '=]
+   [(and (set-null? x) (set-pair? y)) '<]
+   [(and (set-pair? x) (set-null? y)) '>]
+   [(and (set-pair? x) (set-pair? y))
+    (let ((r (lex-compare (set-first x) (set-first y))))
+      (if (eq? r '=)
+          (lex-compare (set-rest x) (set-rest y))
+          r))]))
 
 (define (valid-seto x)
   (if (null-set? x)

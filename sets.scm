@@ -76,8 +76,13 @@
 (record-writer
  (record-type-descriptor nonempty-set)
  (lambda (obj prt wrt)
-   (wrt `(nonempty-set ,(nonempty-set-head obj) ,(nonempty-set-tail obj))
-        prt)))
+   (let ([head (nonempty-set-head obj)]
+         [tail (nonempty-set-tail obj)])
+     (wrt
+      (if (set-null? tail)
+          `(set ,@head)
+          `(set* ,@head ,tail))
+      prt))))
 
 (define (set->list set)
   (cond
