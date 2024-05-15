@@ -161,3 +161,13 @@
         (_.0 _.1 _.0 ,(set* '_.0 '_.1))
         (_.0 ,(set* '_.0 '_.1) _.0 _.1)
         (_.0 ,(set* '_.1 '_.2) _.1 ,(set* '_.0 '_.2))))
+
+(test "sets with disequality"
+      (run* (P)
+        (=/= (set P) (set P)))
+      '())
+
+(test "sets with disequality (2)"
+      (run* (P)
+        (=/= (set P) (set P 1)))
+      '((_.0 (=/= ((_.0 1))))))
