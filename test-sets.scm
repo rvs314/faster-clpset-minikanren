@@ -90,7 +90,7 @@
 (test "ino works on variables"
       (run* (q)
         (ino 3 q))
-      `((,(set-cons 3 '_.0) (set _.0))))
+      `(,(set-cons 3 '_.0)))
 
 (test "ino works on constraint update"
       (run* (q)
@@ -102,7 +102,7 @@
       (run* (q r)
         (ino 3 q)
         (== q (set-cons r ∅)))
-      `((,(set 3) 3)))
+      `((,(set 3) 3) (,(set 3) 3)))
 
 (test "ino respects the pidgeonhole principle"
       (run* (q r)
@@ -126,7 +126,7 @@
         (fresh (k)
           (== k (set-cons 1 q))
           (ino 1 k)))
-      `(_.0 (,(set-cons 1 '_.0) (set _.0))))
+      `(_.0 ,(set-cons 1 '_.0)))
 
 (test "ino generates duplicates (2)"
       (run* (q)
@@ -138,11 +138,26 @@
         (== (set 1 2) (set 1 2)))
       '(_.0))
 
-(define (unique elms)
-  (sort-lex (remove-duplicates elms)))
-
 (test "partially instantiated sets unify correctly"
       (unique
        (run* (q)
          (== (set 1 q) (set 1 q))))
       '(1 _.0))
+
+(test "partially instantiated sets unify correctly (2)"
+      (unique
+       (run* (p q r)
+         (== (set p q r) (set p q r))))
+      '((_.0 _.0 _.0)
+        (_.0 _.0 _.1)
+        (_.0 _.1 _.0)
+        (_.0 _.1 _.1)
+        (_.0 _.1 _.2)))
+
+(test "Example from paper"
+      (run* (X Y R S)
+        (== (set-cons X Y) (set-cons R S)))
+      `((_.0 _.1 _.0 _.1)
+        (_.0 _.1 _.0 ,(set* '_.0 '_.1))
+        (_.0 ,(set* '_.0 '_.1) _.0 _.1)
+        (_.0 ,(set* '_.1 '_.2) _.1 ,(set* '_.0 '_.2))))

@@ -216,16 +216,18 @@ Ex:
 
 (define (normalize-set set s)
   (cond
-   [(null-set? set)     set]
-   [(nonempty-set? set) (make-nonempty-set
-                         (set-head set)
-                         (normalize-set (set-tail set) s))]
+   [(null-set? set)
+    set]
+   [(nonempty-set? set)
+    (make-nonempty-set
+     (set-head set)
+     (normalize-set (set-tail set) s))]
    [(var? set)
     (let ([walked (walk set s)])
       (if (eq? walked set)
           walked
           (normalize-set walked s)))]
-   [else                (error 'normalize-set "set is not well-formed" set)]))
+   [else set]))
 
 (define (unify-sets set set^ s)
   (define-values (head  tail)  (set-parts (normalize-set set  s)))
@@ -796,6 +798,7 @@ The scope of each RHS has access to prior binders, à la let*
     (let* ((S (state-S st))
            (v (walk* x S))
            (R (reify-S v (subst empty-subst-map nonlocal-scope)))
+           (v (simplify-S v R))
            (relevant-vars (vars v)))
       (let*-values (((T D A M) (extract-and-normalize st relevant-vars x))
                     ((D A)   (drop-irrelevant D A relevant-vars))
@@ -1100,3 +1103,19 @@ The scope of each RHS has access to prior binders, à la let*
 
 (define (lex<=? x y)
   (member (lex-compare x y) '(< =)))
+
+(define (unique elms)
+  (sort-lex (remove-duplicates elms)))
+
+(define (simplify-S obj sub)
+  (cond
+   [(pair? obj)
+    (cons (simplify-S (car obj) sub)
+          (simplify-S (cdr obj) sub))]
+   [(set-pair? obj)
+    (let* ([s (normalize-set obj sub)]
+           [h (unique (map (lambda (x) (simplify-S x sub)) (set-head s)))]
+           [t (set-tail s)])
+      (make-nonempty-set h t))]
+   [else obj]))
+
