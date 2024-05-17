@@ -317,8 +317,18 @@
       (== (set q) q))
     '()))
 
-;; Sets with !ino
+;; sets with absento
+(begin
+  (test "Ground value absent from ground set"
+        (run* (q)
+          (absento 1 (set 2 3)))
+        '(_.0))
+  (test "Ground value with a variable set"
+        (run* (q)
+          (absento (set) (set 0 q)))
+        '((_.0 (=/= ((_.0 ∅)))))))
 
+;; Sets with !ino
 (begin
   (test "Nothing is in the empty set"
         (run* (q)
@@ -333,5 +343,42 @@
   (test "The singleton set contains something"
         (run* (q)
           (!ino q (set q)))
-        '()))
+        '())
 
+  (test "Add a constraint to a variable"
+        (run* (q)
+          (!ino 1 q))
+        '((_.0 (∌ _.0 1))))
+
+  (test "Add a variable constraint to a variable"
+        (run* (q)
+          (fresh (f)
+            (!ino f q)))
+        '(_.0)))
+
+;; Chat with Will
+(begin
+  (test "Absento does not apply to subsets"
+        (run* (q)
+          (absento (set) (set 1 2 3)))
+        '(_.0))
+  (test "Empty set does not contain itself"
+        (run* (q)
+          (!ino (set) (set)))
+        '(_.0))
+  (test "Singleton of Empty set contains the empty set"
+        (run* (q)
+          (!ino (set) (set (set))))
+        '())
+  (test "Singleton of Empty set contains the empty set"
+        (run* (q)
+          (!ino (set) (set (set))))
+        '())
+  (test "!ino does not recur"
+        (run* (q)
+          (!ino q (set (set q))))
+        '(_.0))
+  (test "absento does recur"
+        (run* (q)
+          (absento q (set (set q))))
+        '()))

@@ -131,7 +131,7 @@
 ;         constraint must be violated to cause failure.
 ;   A - list of absento constraints. Each constraint is a term.
 ;         The list contains no duplicates.
-;   M - list of members. Each constraint is a term.
+;   M - list of non-members. Each constraint is a term.
 
 (define empty-c '(#f () () ()))
 
@@ -644,28 +644,31 @@ The scope of each RHS has access to prior binders, à la let*
 (define (=/= u v)
   (=/=* (list (cons u v))))
 
+;; Term, Term -> Goal
+;; Holds when `i` is a member of `s` 
+(define (ino i s)
+  (project (s)
+    (cond
+     [(set-pair? s)
+      (conde
+       ;; possible duplicate introduced here
+       [(== i (set-first s))]
+       [(ino i (set-rest s))])]
+     [(var? s)
+      (fresh (k)
+        (seto k)
+        (== s (set-cons i k)))]
+     [else          fail])))
+
 ;; State, Var, Term -> State
-;; Add the constraint that a variable must unify to a term to a state
+;; Add the constraint that a variable musn't unify to a term to a state
 (define (add-to-M st v trm)
   (let* ((c  (lookup-c st v))
          (c^ (c-with-M c (cons trm (c-M c)))))
     (set-c st v c^)))
 
 ;; Term, Term -> Goal
-;; Holds when `i` is a member of `s` 
-(define (ino i s)
-  (project (s)
-    (cond
-     [(set-pair? s) (conde
-                     ;; possible duplicate introduced here
-                     [(== i (set-first s))]
-                     [(ino i (set-rest s))])]
-     [(var? s)      (fresh (k)
-                      (seto k)
-                      (== s (set-cons i k)))]
-     [else          fail])))
-
-;; Term, Term -> Goal
+;; Goal which succeeds iff the item is not a member of a given set
 (define (!ino i s)
   (project (s)
     (cond
@@ -673,12 +676,21 @@ The scope of each RHS has access to prior binders, à la let*
       (fresh ()
        (=/=  i (set-first s))
        (!ino i (set-rest s)))]
+     [(var? s)
+      (lambda (st)
+        (add-to-M st s i))]
      [else          succeed])))
 
 ; Term, Term -> Goal
 ; Generalized 'absento': 'term1' can be any legal term (old version
 ; of faster-miniKanren required 'term1' to be a ground atom).
 (define (absento term1 term2)
+  (define (set-absento set)
+    (cond
+     [(set-null? set) succeed]
+     [(set-pair? set) (fresh ()
+                       (absento term1 (set-first set))
+                       (set-absento (set-rest set)))]))
   (lambda (st)
     (let ((term1 (walk term1 (state-S st)))
           (term2 (walk term2 (state-S st))))
@@ -688,9 +700,8 @@ The scope of each RHS has access to prior binders, à la let*
               ((pair? term2)
                (let ((st^^ ((absento term1 (car term2)) st^)))
                  (and st^^ ((absento term1 (cdr term2)) st^^))))
-              ((set-pair? term2)
-               (let ((st^^ ((absento term1 (set-first term2)) st^)))
-                 (and st^^ ((absento term1 (set-rest term2)) st^^))))
+              ((set? term2)
+               ((set-absento term2) st))
               ((var? term2)
                (let* ((c (lookup-c st^ term2))
                       (A (c-A c)))
@@ -773,7 +784,7 @@ The scope of each RHS has access to prior binders, à la let*
                             '())
                         (map (lambda (atom) (absento atom (rhs a))) (c-A old-c))
                         (map =/=* (c-D old-c))
-                        (map (lambda (mem) (ino mem (rhs a))) (c-M old-c))))))))) 
+                        (map (lambda (mem) (!ino mem (rhs a))) (c-M old-c))))))))) 
 
 (define (walk* v S)
   (let ((v (walk v S)))
@@ -801,7 +812,7 @@ The scope of each RHS has access to prior binders, à la let*
 ; T - type constraints
 ; A - absento constriants
 ; D - disequality constraints
-; M - membership constraints
+; M - non-membership constraints
 
 (define (reify x)
   (lambda (st)
@@ -811,7 +822,7 @@ The scope of each RHS has access to prior binders, à la let*
            (v (simplify-S v R))
            (relevant-vars (vars v)))
       (let*-values (((T D A M) (extract-and-normalize st relevant-vars x))
-                    ((D A)   (drop-irrelevant D A relevant-vars))
+                    ((D A M)   (drop-irrelevant D A M relevant-vars))
                     ((D A)   (drop-subsumed D A st)))
         (form (walk* v R)
               (walk* D R)
@@ -873,12 +884,14 @@ The scope of each RHS has access to prior binders, à la let*
 ; Drop constraints that are satisfiable in any assignment of the reified
 ; variables, because they refer to unassigned variables that are not part of
 ; the answer, which can be assigned as needed to satisfy the constraint.
-(define (drop-irrelevant D A relevant-vars)
+(define (drop-irrelevant D A M relevant-vars)
   (define (all-relevant? t)
     (andmap (lambda (v) (member v relevant-vars))
             (vars t)))
   (values (filter all-relevant? D)
-          (filter all-relevant? A)))
+          (filter all-relevant? A)
+          (filter all-relevant? M)))
+          
 
 
 (define (drop-subsumed D A st)
@@ -1026,7 +1039,7 @@ The scope of each RHS has access to prior binders, à la let*
                   `((absento . ,fa)))))
           (fm (if (null? fm)
                   fm
-                  `((in ,(cdar fm) ,@(map car fm))))))
+                  `((∌ ,(cdar fm) ,@(map car fm))))))
       (cond
         ((and (null? fd) (null? ft) (null? fa) (null? fm) (not (always-wrap-reified?)))
          v)
