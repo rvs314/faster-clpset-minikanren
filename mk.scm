@@ -665,6 +665,16 @@ The scope of each RHS has access to prior binders, à la let*
                       (== s (set-cons i k)))]
      [else          fail])))
 
+;; Term, Term -> Goal
+(define (!ino i s)
+  (project (s)
+    (cond
+     [(set-pair? s)
+      (fresh ()
+       (=/=  i (set-first s))
+       (!ino i (set-rest s)))]
+     [else          succeed])))
+
 ; Term, Term -> Goal
 ; Generalized 'absento': 'term1' can be any legal term (old version
 ; of faster-miniKanren required 'term1' to be a ground atom).
@@ -1107,6 +1117,7 @@ The scope of each RHS has access to prior binders, à la let*
 (define (lex<=? x y)
   (member (lex-compare x y) '(< =)))
 
+;; Remove duplicates from a list and sort them
 (define (unique elms)
   (sort-lex (remove-duplicates elms)))
 

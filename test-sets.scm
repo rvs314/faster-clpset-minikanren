@@ -12,142 +12,151 @@
 
 (printf "set-tests~%")
 
-;; Basic set constructs (no constraints)
+(define-syntax run-unique*
+  (syntax-rules ()
+    [(run-unique* (v ...)
+       g ...)
+     (unique (run* (v ...)
+               g ...))]))
 
-(test "set equality"
-      (set 0 1 2)
-      (set 0 1 2))
+;; Set constructors
+(begin
+  (test "set equality"
+        (set 0 1 2)
+        (set 0 1 2))
 
-(test "set cons"
-      (set 0 1 2)
-      (set-cons 0 (set-cons 1 (set-cons 2 ∅))))
+  (test "set cons"
+        (set 0 1 2)
+        (set-cons 0 (set-cons 1 (set-cons 2 ∅))))
 
-(test "set->list"
-      (set->list (set 0 1 2))
-      (list 0 1 2))
+  (test "set->list"
+        (set->list (set 0 1 2))
+        (list 0 1 2))
 
-(test "list->set"
-      (list->set (list 0 1 2))
-      (set 0 1 2))
+  (test "list->set"
+        (list->set (list 0 1 2))
+        (set 0 1 2)))
 
-;; Basic MK constructs using sets
+;; Seto
+(begin 
+  (test "set-null unifies correctly"
+        (run* (q)
+          (== (cons (cons 1 ∅) ∅)
+              (cons (cons 1 ∅) ∅))
+          (== ∅ ∅)
+          (== q ∅))
+        (list ∅))
 
-(test "set-null unifies correctly"
-      (run* (q)
-        (== (cons (cons 1 ∅) ∅)
-            (cons (cons 1 ∅) ∅))
-        (== ∅ ∅)
-        (== q ∅))
-      (list ∅))
+  (test "seto of set-null works"
+        (run* (q)
+          (seto ∅))
+        '(_.0))
 
+  (test "seto of set-cons works"
+        (run* (q)
+          (seto (set-cons 1 ∅)))
+        '(_.0))
 
-(test "seto of set-null works"
-      (run* (q)
-        (seto ∅))
-      '(_.0))
+  (test "seto of variable works"
+        (run* (q)
+          (seto q))
+        '((_.0 (set _.0))))
 
-(test "seto of set-cons works"
-      (run* (q)
-        (seto (set-cons 1 ∅)))
-      '(_.0))
+  (test "set tail must be a set"
+        (run* (q)
+          (seto q)
+          (== q (set-cons 1 2)))
+        '())
 
-(test "seto of variable works"
-      (run* (q)
-        (seto q))
-      '((_.0 (set _.0))))
+  (test "set tail may be a variable"
+        (run* (p q)
+          (seto q)
+          (== q (set-cons 1 p)))
+        `(((_.0 ,(set-cons 1 '_.0)) (set _.0))))
 
-(test "set tail must be a set"
-      (run* (q)
-        (seto q)
-        (== q (set-cons 1 2)))
-      '())
+  (test "sets aren't other things"
+        (run* (q)
+          (seto q)
+          (conde
+           [(symbolo q)]
+           [(numbero q)]
+           [(stringo q)]))
+        '()))
 
-(test "set tail may be a variable"
-      (run* (p q)
-        (seto q)
-        (== q (set-cons 1 p)))
-      `(((_.0 ,(set-cons 1 '_.0)) (set _.0))))
+;; Ino
+(begin 
+  (test "ino works on set-pairs"
+        (run* (q)
+          (ino 3 (set 2 4 9 3 1)))
+        '(_.0))
 
-(test "sets aren't other things"
-      (run* (q)
-        (seto q)
-        (conde
-         [(symbolo q)]
-         [(numbero q)]
-         [(stringo q)]))
-      '())
+  (test "ino works on set-nulls"
+        (run* (q)
+          (ino 3 ∅))
+        '())
 
-(test "ino works on set-pairs"
-      (run* (q)
-        (ino 3 (set 2 4 9 3 1)))
-      '(_.0))
+  (test "ino works on variables"
+        (run* (q)
+          (ino 3 q))
+        `(,(set-cons 3 '_.0)))
 
-(test "ino works on set-nulls"
-      (run* (q)
-        (ino 3 ∅))
-      '())
+  (test "ino works on constraint update"
+        (run* (q)
+          (ino 3 q)
+          (== q ∅))
+        '())
 
-(test "ino works on variables"
-      (run* (q)
-        (ino 3 q))
-      `(,(set-cons 3 '_.0)))
+  (test "ino forces unification eventually"
+        (run* (q r)
+          (ino 3 q)
+          (== q (set-cons r ∅)))
+        `((,(set 3) 3) (,(set 3) 3)))
 
-(test "ino works on constraint update"
-      (run* (q)
-        (ino 3 q)
-        (== q ∅))
-      '())
+  (test "ino respects the pidgeonhole principle"
+        (run* (q r)
+          (== q (set-cons r ∅))
+          (ino 3 q)
+          (ino 4 q))
+        '())
 
-(test "ino forces unification eventually"
-      (run* (q r)
-        (ino 3 q)
-        (== q (set-cons r ∅)))
-      `((,(set 3) 3) (,(set 3) 3)))
-
-(test "ino respects the pidgeonhole principle"
-      (run* (q r)
-        (== q (set-cons r ∅))
-        (ino 3 q)
-        (ino 4 q))
-      '())
-
-(test "ino respects the pidgeonhole principle (in reverse)"
-      (run* (q r)
-        (ino 3 q)
-        (ino 4 q)
-        (== q (set-cons r ∅)))
-      '())
+  (test "ino respects the pidgeonhole principle (in reverse)"
+        (run* (q r)
+          (ino 3 q)
+          (ino 4 q)
+          (== q (set-cons r ∅)))
+        '())
 
 ;; The duplicate generation is undesirable and should
 ;; be removed in the future
 
-(test "ino generates duplicates"
-      (run* (q)
-        (fresh (k)
-          (== k (set-cons 1 q))
-          (ino 1 k)))
-      `(_.0 ,(set-cons 1 '_.0)))
+  (test "ino generates duplicates"
+        (run* (q)
+          (fresh (k)
+            (== k (set-cons 1 q))
+            (ino 1 k)))
+        `(_.0 ,(set-cons 1 '_.0)))
 
-(test "ino generates duplicates (2)"
-      (run* (q)
-        (ino q (set 1 1 1 1)))
-      '(1 1 1 1))
+  (test "ino generates duplicates (2)"
+        (run* (q)
+          (ino q (set 1 1 1 1)))
+        '(1 1 1 1)))
 
-(test "literal sets unify correctly"
-      (run* (q)
-        (== (set 1 2) (set 1 2)))
-      '(_.0))
+;; Set unification
+(begin
+  
+  (test "literal sets unify correctly"
+        (run* (q)
+          (== (set 1 2) (set 1 2)))
+        '(_.0))
 
-(test "partially instantiated sets unify correctly"
-      (unique
-       (run* (q)
-         (== (set 1 q) (set 1 q))))
-      '(1 _.0))
+  (test "partially instantiated sets unify correctly"
+        (run-unique* (q)
+          (== (set 1 q) (set 1 q)))
+        '(1 _.0)))
 
 (test "partially instantiated sets unify correctly (2)"
-      (unique
-       (run* (p q r)
-         (== (set p q r) (set p q r))))
+      (run-unique* (p q r)
+        (== (set p q r) (set p q r)))
       '((_.0 _.0 _.0)
         (_.0 _.0 _.1)
         (_.0 _.1 _.0)
@@ -162,12 +171,167 @@
         (_.0 ,(set* '_.0 '_.1) _.0 _.1)
         (_.0 ,(set* '_.1 '_.2) _.1 ,(set* '_.0 '_.2))))
 
-(test "sets with disequality"
-      (run* (P)
-        (=/= (set P) (set P)))
-      '())
+;; Set with disequality
+(begin
+  (test "sets with disequality"
+        (run* (P)
+          (=/= (set P) (set P)))
+        '())
 
-(test "sets with disequality (2)"
-      (run* (P)
-        (=/= (set P) (set P 1)))
-      '((_.0 (=/= ((_.0 1))))))
+  (test "sets with disequality (2)"
+        (run* (P)
+          (=/= (set P) (set P 1)))
+        '((_.0 (=/= ((_.0 1)))))))
+
+;; Will's CLP(Set) tests
+(begin
+  (test "w1a"
+    (run-unique* (q)
+      (== (set 1) (set 1 1 1 1 1)))
+    '(_.0))
+
+  (test "w1b"
+    (run-unique* (q)
+      (== (set 1 1 1 1 1) (set 1)))
+    '(_.0))
+
+  (test "w2"
+    (run-unique* (q)
+      (== ∅ ∅))
+    '(_.0))
+
+  (test "w3"
+    (run-unique* (q)
+      (== (set 1 2) (set 2 1)))
+    '(_.0))
+
+  (test "w4"
+    (run-unique* (q)
+      (== (set 1 2) (set q 1)))
+    '(2))
+
+  (test "w5"
+    (run-unique* (q)
+      (== (set 2 1 2) (set 1 q 1)))
+    '(2))
+
+  (test "w6"
+    (run-unique* (q)
+      (fresh (x y)
+        (== (list x y) q)
+        (== (set x 2) (set y 1))))
+    '((1 2)))
+
+  (test "d1"
+    (run-unique* (q)
+      (=/= ∅ ∅))
+    '())
+
+  (test "d2"
+    (run-unique* (q)
+      (=/= (set 1 2 1) (set 2 2 1)))
+    '())
+
+  (test "d3a"
+    (run-unique* (q)
+      (fresh (s1 s2)
+        (== (list s1 s2) q)
+        (seto s1)
+        (seto s2)
+        (== s1 s2)
+        (=/= s1 s2)))
+    '())
+
+  (test "d3b"
+    (run-unique* (q)
+      (fresh (s1 s2)
+        (== (list s1 s2) q)
+        (seto s1)
+        (seto s2)
+        (=/= s1 s2)
+        (== s1 s2)))
+    '())
+
+  (test "d3c"
+    (run-unique* (q)
+      (fresh (s1 s2)
+        (== (list s1 s2) q)
+        (=/= s1 s2)
+        (seto s1)
+        (seto s2)
+        (== s1 s2)))
+    '())
+
+  (test "d4"
+    (run-unique* (q)
+      (fresh (x y)
+        (== (list x y) q)
+        (=/= (set x 2) (set 1 2))))
+    ;; Note, this isn't the result Will got,
+    ;; as faster-mk has a better reifier,
+    ;; so one less redundant choice
+    '(((_.0 _.1) (=/= ((_.0 1))))))
+
+  (test "s1a"
+    (run-unique* (q)
+      (== ∅ (set ∅)))
+    '())
+
+  (test "s1b"
+    (run-unique* (q)
+      (== (set ∅) ∅))
+    '())
+
+  (test "s2"
+    (run-unique* (q)
+      (fresh (s1 s2)
+        (== (list s1 s2) q)
+        (seto s1)
+        (seto s2)
+        (== (set* s2 s1) s2)))
+    '())
+
+  (test "s3"
+    (run-unique* (q)
+      (fresh (s1 s2 s3)
+        (== (list s1 s2 s3) q)
+        (seto s1)
+        (seto s2)
+        (seto s3)
+        (== (set* s2 s1) s3)))
+    `(((_.0 _.1 ,(set* '_.1 '_.0)) (set _.0 _.1))))
+
+  (test "s4"
+    (run-unique* (q)
+      (== (set q) ∅))
+    '())
+
+  (test "s5"
+    (run-unique* (q)
+      (seto q)
+      (== (set q) q))
+    '())
+
+  (test "s6"
+    (run-unique* (q)
+      (== (set q) q))
+    '()))
+
+;; Sets with !ino
+
+(begin
+  (test "Nothing is in the empty set"
+        (run* (q)
+          (!ino q ∅))
+        '(_.0))
+
+  (test "Variable ∉ Ground Set"
+        (run* (q)
+          (!ino q (set 1 2 3)))
+        '((_.0 (=/= ((_.0 1)) ((_.0 2)) ((_.0 3))))))
+
+  (test "The singleton set contains something"
+        (run* (q)
+          (!ino q (set q)))
+        '()))
+
