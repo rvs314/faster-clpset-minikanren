@@ -326,7 +326,7 @@
   (test "Ground value with a variable set"
         (run* (q)
           (absento (set) (set 0 q)))
-        '((_.0 (=/= ((_.0 ∅)))))))
+        `((_.0 (absento (,∅ _.0))))))
 
 ;; Sets with !ino
 (begin
