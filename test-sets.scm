@@ -8,16 +8,14 @@
 (load "./mk-vicare.scm")
 (load "./mk.scm")
 ;; FIXME: call test-sets from test-all, not other way around
-(load "./test-all.scm")
+;; (load "./test-all.scm")
 
 (printf "set-tests~%")
 
-(define-syntax run-unique*
-  (syntax-rules ()
-    [(run-unique* (v ...)
-       g ...)
-     (unique (run* (v ...)
-               g ...))]))
+(define (log . parts)
+  (display parts)
+  (newline)
+  (cdr (last-pair parts)))
 
 ;; Set constructors
 (begin
@@ -152,24 +150,24 @@
   (test "partially instantiated sets unify correctly"
         (run-unique* (q)
           (== (set 1 q) (set 1 q)))
-        '(1 _.0)))
+        '(1 _.0))
 
-(test "partially instantiated sets unify correctly (2)"
-      (run-unique* (p q r)
-        (== (set p q r) (set p q r)))
-      '((_.0 _.0 _.0)
-        (_.0 _.0 _.1)
-        (_.0 _.1 _.0)
-        (_.0 _.1 _.1)
-        (_.0 _.1 _.2)))
+  (test "partially instantiated sets unify correctly (2)"
+        (run-unique* (p q r)
+          (== (set p q r) (set p q r)))
+        '((_.0 _.0 _.0)
+          (_.0 _.0 _.1)
+          (_.0 _.1 _.0)
+          (_.0 _.1 _.1)
+          (_.0 _.1 _.2)))
 
-(test "Example from paper"
-      (run* (X Y R S)
-        (== (set-cons X Y) (set-cons R S)))
-      `((_.0 _.1 _.0 _.1)
-        (_.0 _.1 _.0 ,(set* '_.0 '_.1))
-        (_.0 ,(set* '_.0 '_.1) _.0 _.1)
-        (_.0 ,(set* '_.1 '_.2) _.1 ,(set* '_.0 '_.2))))
+  (test "Example from paper"
+        (run* (X Y R S)
+          (== (set-cons X Y) (set-cons R S)))
+        `((_.0 _.1 _.0 _.1)
+          (_.0 _.1 _.0 ,(set* '_.0 '_.1))
+          (_.0 ,(set* '_.0 '_.1) _.0 _.1)
+          (_.0 ,(set* '_.1 '_.2) _.1 ,(set* '_.0 '_.2)))))
 
 ;; Set with disequality
 (begin
@@ -382,3 +380,34 @@
         (run* (q)
           (absento q (set (set q))))
         '()))
+
+;; Disjo
+(begin
+  (test "Empty set is always disjoint"
+        (run* (q)
+          (disjo (set) (set 1 2 3)))
+        '(_.0))
+  (test "Empty set is always disjoint (2)"
+        (run* (q)
+          (disjo (set 1 2 3) (set)))
+        '(_.0))
+  (test "Concrete disjoint sets become =/= constraints"
+        (run* (a b c d)
+          (disjo (set a b) (set c d)))
+        '(((_.0 _.1 _.2 _.3)
+           (=/= ((_.0 _.2)) ((_.0 _.3)) ((_.1 _.2)) ((_.1 _.3))))))
+  (test "Abstract disjoint sets become !ino constraints"
+        (run* (q)
+          (disjo (set 1 2 3) q))
+        '((_.0 (set _.0) (∌ _.0 1 2 3))))
+  (test "Completely abstract disjo"
+        (run* (p q)
+          (disjo p q))
+        '(((_.0 _.1) (set _.0 _.1) (∥ (_.0 _.1)))))
+  (test "Disjo before unification"
+    (run* (p q)
+      (disjo p q)
+      (== p (set 1 2 3)))
+    `(((,(set 1 2 3) _.0) (set _.0) (∌ _.0 1 2 3)))))
+
+;; (assert (not test-failed))
