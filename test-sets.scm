@@ -346,13 +346,13 @@
   (test "Add a constraint to a variable"
         (run* (q)
           (!ino 1 q))
-        '((_.0 (∌ _.0 1))))
+        '((_.0 (set _.0) (∌ _.0 1))))
 
   (test "Add a variable constraint to a variable"
         (run* (q)
           (fresh (f)
             (!ino f q)))
-        '(_.0)))
+        '((_.0 (set _.0)))))
 
 ;; Chat with Will
 (begin
@@ -410,4 +410,36 @@
       (== p (set 1 2 3)))
     `(((,(set 1 2 3) _.0) (set _.0) (∌ _.0 1 2 3)))))
 
-;; (assert (not test-failed))
+(begin
+  (test "Union with the empty set is the identity"
+        (run* (q)
+          (uniono (set) q q))
+        '((_.0 (set _.0))))
+  (test "Union with the empty set is the identity (2)"
+        (run* (q)
+          (uniono q (set) q))
+        '((_.0 (set _.0))))
+  (test "Union over concrete sets"
+        (run* (q)
+          (uniono (set 1 2) (set 3 4) q))
+        `(,(set 1 2 3 4)))
+  (test "Union with a known set becomes membership"
+        (run* (p q)
+          (uniono (set 1 2 3) p q))
+        `(((_.0 ,(set* 1 2 3 '_.0)) (set _.0) (∌ _.0 1 2 3))
+          (,(set* 1 '_.0) ,(set* 1 2 3 '_.0))
+          (,(set* 2 '_.0) ,(set* 1 2 3'_.0))
+          (,(set* 1 2 '_.0) ,(set* 1 2 3'_.0))
+          (,(set* 3 '_.0) ,(set* 1 2 3'_.0))
+          (,(set* 1 3 '_.0) ,(set* 1 2 3'_.0))
+          (,(set* 2 3 '_.0) ,(set* 1 2 3'_.0))
+          (,(set* 1 2 3 '_.0) ,(set* 1 2 3'_.0))))
+  (test "Union over two fresh variables"
+        (run* (p q r)
+          (uniono p q r))
+        '()))
+
+(if test-failed
+    (display "Test Failed!")
+    (display "Tests Passed!"))
+(newline)
