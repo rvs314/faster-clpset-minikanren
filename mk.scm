@@ -134,20 +134,25 @@
 ;   M - list of non-members. Each constraint is a term.
 ;   E - list of variables which are mutually exclusive with the
 ;       associated variable
+;   U - list of three-element lists. Each (list X Y Z) is
+;       the constraint that X ∪ Y = Z. The associated variable should
+;       be at least one of X, Y or Z
 
-(define empty-c '(#f () () () ()))
+(define empty-c '(#f () () () () ()))
 
 (define (c-T c) (car c))
 (define (c-D c) (cadr c))
 (define (c-A c) (caddr c))
 (define (c-M c) (cadddr c))
 (define (c-E c) (car (cddddr c)))
+(define (c-U c) (cadr (cddddr c)))
 
-(define (c-with-T c T) (list T (c-D c) (c-A c) (c-M c) (c-E c)))
-(define (c-with-D c D) (list (c-T c) D (c-A c) (c-M c) (c-E c)))
-(define (c-with-A c A) (list (c-T c) (c-D c) A (c-M c) (c-E c)))
-(define (c-with-M c M) (list (c-T c) (c-D c) (c-A c) M (c-E c)))
-(define (c-with-E c E) (list (c-T c) (c-D c) (c-A c) (c-M c) E))
+(define (c-with-T c T) (list T (c-D c) (c-A c) (c-M c) (c-E c) (c-U c)))
+(define (c-with-D c D) (list (c-T c) D (c-A c) (c-M c) (c-E c) (c-U c)))
+(define (c-with-A c A) (list (c-T c) (c-D c) A (c-M c) (c-E c) (c-U c)))
+(define (c-with-M c M) (list (c-T c) (c-D c) (c-A c) M (c-E c) (c-U c)))
+(define (c-with-E c E) (list (c-T c) (c-D c) (c-A c) (c-M c) E (c-U c)))
+(define (c-with-U c U) (list (c-T c) (c-D c) (c-A c) (c-M c) (c-E c) U))
 
 ; Constraint store object.
 ; Mapping of representative variable to constraint record. Constraints
@@ -171,7 +176,6 @@
 ; I implement remove by setting the value to the empty constraint record.
 (define (remove-c x st)
   (state-with-C st (intmap-set (state-C st) (var-idx x) empty-c)))
-
 
 ; State object.
 ; The state is the value that is monadically passed through the search
@@ -299,7 +303,7 @@ Ex:
   (if (eq? tail tail^)
       (set-induction)
       (set-enumeration)))
-  
+
 ; Unification
 
 ; UnificationResult: (Streamof (Pair Substitution (Listof Association)))
@@ -648,7 +652,7 @@ The scope of each RHS has access to prior binders, à la let*
   (=/=* (list (cons u v))))
 
 ;; Term, Term -> Goal
-;; Holds when `i` is a member of `s` 
+;; Holds when `i` is a member of `s`
 (define (ino i s)
   (project (s)
     (cond
@@ -690,12 +694,12 @@ The scope of each RHS has access to prior binders, à la let*
         (add-to-M st s i))]
      [else          succeed])))
 
-;; State, Var, Var -> State 
+;; State, Var, Var -> State
 ;; Add the constraint that two variables are mutually exclusive sets
 (define (add-to-E st u v)
   (define (add-E st v x)
     (let* ((c  (lookup-c st v))
-           (c^ (c-with-E c (cons x (c-E c)))))
+           (c^ (c-with-E c (cons-new x (c-E c)))))
       (set-c st v c^)))
   (add-E (add-E st u v) v u))
 
@@ -760,6 +764,14 @@ The scope of each RHS has access to prior binders, à la let*
   (== set (set-cons elem set-elem))
   (!ino elem set-elem))
 
+(define (add-to-U st p q r)
+  (define new-constraint (list p q r))
+  (define (add-U st v)
+    (let* ((c  (lookup-c st v))
+           (c^ (c-with-U c (cons-new new-constraint (c-U c)))))
+      (set-c st v c^)))
+  (add-U (add-U (add-U st p) q) r))
+
 (defrel (uniono l r l+r)
   (seto l)
   (seto r)
@@ -798,9 +810,23 @@ The scope of each RHS has access to prior binders, à la let*
           (conde
            [(!ino t1 r) (uniono N1 r N)]
            [(removeo r t1 N2) (uniono N1 N2 N)])))]
-     [(and (var? l) (var? r))
-      (error 'uniono "Union of two variables not yet implemented")]
+     [(and (var? l) (var? r) (var? l+r))
+      (lambda (st)
+        (add-to-U st l r l+r))]
      [else fail])))
+
+;; Derived set constraints
+(define (!uniono l r l+r)
+  (fresh (N)
+    (conde
+     [(ino N l+r) (!ino N l) (!ino N r)]
+     [(ino N r)   (!ino N l+r)]
+     [(ino N l)   (!ino N l+r)])))
+
+(define (!disjo p q)
+  (fresh (N)
+    (ino N p)
+    (ino N q)))
 
 ; (State, Any -> SimpleConstraint), State, List -> SimpleConstraint
 ; Fold lst with proc and initial value init. If proc ever returns #f,
@@ -858,6 +884,12 @@ The scope of each RHS has access to prior binders, à la let*
              [st^ (state S^ (state-C st))])
         (bind-foldl st^ (map update-constraints added))))))
 
+(define (replace from to list)
+  (cond
+   [(null? list)             list]
+   [(equal? from (car list)) (cons to (replace from to (cdr list)))]
+   [else                     (cons (car list) (replace from to (cdr list)))]))
+
 ;; Association -> Goal
 ;; Given a new association, return a goal which is its logical consequence,
 ;; WRT the given constraint
@@ -885,7 +917,22 @@ The scope of each RHS has access to prior binders, à la let*
                                    (let* ([vr-old-c (lookup-c st vr)]
                                           [vr-new-c-E (remove (lhs a) (c-E vr-old-c))])
                                      (set-c st vr (c-with-E vr-old-c vr-new-c-E))))))
-                             (c-E old-c)))))))))
+                             (c-E old-c))
+                        (map (lambda (con)
+                               (fresh ()
+                                 (lambda (st)
+                                   (bind-foldl
+                                    st
+                                    (map
+                                     (lambda (vr)
+                                       (lambda (st)
+                                         (let* ([vr-old-c   (lookup-c st vr)]
+                                                [vr-new-c-U (remove con (c-U vr-old-c))])
+                                           (set-c st vr (c-with-U vr-old-c vr-new-c-U)))))
+                                     con)))
+                                 (apply uniono (replace (lhs a) (rhs a) con))))
+                             (c-U old-c)))))))))
+
 
 (define (walk* v S)
   (let ((v (walk v S)))
@@ -923,15 +970,16 @@ The scope of each RHS has access to prior binders, à la let*
            (R (reify-S v (subst empty-subst-map nonlocal-scope)))
            (v (simplify-S v R))
            (relevant-vars (vars v)))
-      (let*-values (((T D A M E) (extract-and-normalize st relevant-vars x))
-                    ((D A M E) (drop-irrelevant D A M E relevant-vars))
+      (let*-values (((T D A M E U) (extract-and-normalize st relevant-vars x))
+                    ((D A M E U) (drop-irrelevant D A M E U relevant-vars))
                     ((D A)   (drop-subsumed D A st)))
         (form (walk* v R)
               (walk* D R)
               (walk* T R)
               (walk* A R)
               (walk* M R)
-              (walk* E R))))))
+              (walk* E R)
+              (walk* U R))))))
 
 (define (vars term)
   (let rec ((term term) (acc '()))
@@ -977,7 +1025,14 @@ The scope of each RHS has access to prior binders, à la let*
                                  x))
                          (c-E (lookup-c st x))))
                   relevant-vars)))
-  (values T D A M E))
+  (define U (append*
+             (map (lambda (x)
+                    (map (lambda (u-lhs)
+                           (cons (walk* u-lhs (state-S st))
+                                 x))
+                         (c-U (lookup-c st x))))
+                  relevant-vars)))
+  (values T D A M E U))
 
 (define (normalize-diseq S)
   ;; FIXME:
@@ -994,15 +1049,16 @@ The scope of each RHS has access to prior binders, à la let*
 ; Drop constraints that are satisfiable in any assignment of the reified
 ; variables, because they refer to unassigned variables that are not part of
 ; the answer, which can be assigned as needed to satisfy the constraint.
-(define (drop-irrelevant D A M E relevant-vars)
+(define (drop-irrelevant D A M E U relevant-vars)
   (define (all-relevant? t)
     (andmap (lambda (v) (member v relevant-vars))
             (vars t)))
   (values (filter all-relevant? D)
           (filter all-relevant? A)
           (filter all-relevant? M)
-          (filter all-relevant? E)))
-          
+          (filter all-relevant? E)
+          (filter all-relevant? U)))
+
 
 
 (define (drop-subsumed D A st)
@@ -1132,7 +1188,7 @@ The scope of each RHS has access to prior binders, à la let*
   (string->symbol
     (string-append "_" "." (number->string n))))
 
-(define (form v D T A M E)
+(define (form v D T A M E U)
   (let ((ft (filter-map
               (lambda (p)
                 (let ((tc-type (car p)) (tc-vars (cdr p)))
@@ -1142,7 +1198,8 @@ The scope of each RHS has access to prior binders, à la let*
         (fd (sort-D D))
         (fa (sort-lex A))
         (fm (sort-lex M))
-        (fe (remove-duplicates (sort-E E)))) 
+        (fe (remove-duplicates (sort-E E)))
+        (fu (remove-duplicates (sort-U U))))
     (let ((fd (if (null? fd) fd
                 (let ((fd (drop-dot-D fd)))
                   `((=/= . ,fd)))))
@@ -1154,12 +1211,18 @@ The scope of each RHS has access to prior binders, à la let*
                   `((∌ ,(cdar fm) ,@(remove-duplicates (map car fm))))))
           (fe (if (null? fe)
                   fe
-                  `((∥ . ,(drop-dot fe))))))
+                  `((∥ . ,(drop-dot fe)))))
+          (fu (if (null? fu)
+                  fu
+                  `((∪₃ ,@fu)))))
       (cond
-       ((and (null? fd) (null? ft) (null? fa) (null? fm) (null? fe)
+       ((and (null? fd) (null? ft) (null? fa) (null? fm) (null? fe) (null? fu)
              (not (always-wrap-reified?)))
         v)
-       (else (append `(,v) fd ft fa fm fe))))))
+       (else (append `(,v) fd ft fa fm fe fu))))))
+
+(define (sort-U U)
+  (map car U))
 
 (define (sort-E E)
   (list-sort
@@ -1264,4 +1327,3 @@ The scope of each RHS has access to prior binders, à la let*
            [t (set-tail s)])
       (make-nonempty-set h t))]
    [else obj]))
-
