@@ -663,16 +663,22 @@ The scope of each RHS has access to prior binders, à la let*
         (== s (set-cons i k)))]
      [else          fail])))
 
+(define (cons-new elem lst)
+  (if (member elem lst)
+      lst
+      (cons elem lst)))
+
 ;; State, Var, Term -> State
 ;; Add the constraint that a variable musn't unify to a term to a state
 (define (add-to-M st v trm)
   (let* ((c  (lookup-c st v))
-         (c^ (c-with-M c (cons trm (c-M c)))))
+         (c^ (c-with-M c (cons-new trm (c-M c)))))
     (set-c st v c^)))
 
 ;; Term, Term -> Goal
 ;; Goal which succeeds iff the item is not a member of a given set
-(define (!ino i s)
+(defrel (!ino i s)
+  (seto s)
   (project (s)
     (cond
      [(set-pair? s)
@@ -749,6 +755,52 @@ The scope of each RHS has access to prior binders, à la let*
                    (let ((c^ (c-with-A c (cons term1 A))))
                      (set-c st^ term2 c^)))))
               (else st^)))))))
+
+(defrel (removeo set elem set-elem)
+  (== set (set-cons elem set-elem))
+  (!ino elem set-elem))
+
+(defrel (uniono l r l+r)
+  (seto l)
+  (seto r)
+  (seto l+r)
+  (project (l r l+r)
+    (cond
+     [(equal? l r)    (== l l+r)]
+     [(set-null? l+r) (fresh ()
+                        (== l ∅)
+                        (== r ∅))]
+     [(set-null? l)   (== r l+r)]
+     [(set-null? r)   (== l l+r)]
+     [(set-pair? l+r)
+      (let ([t1 (set-first l+r)]
+            [t2 (set-rest l+r)])
+        (fresh (N N1 N2)
+          (seto N)
+          (seto N1)
+          (seto N2)
+          (removeo l+r t1 N)
+          (conde
+           [(removeo l t1 N1) (uniono N1 r N)]
+           [(removeo r t1 N1) (uniono l N1 N)]
+           [(removeo l t1 N1) (removeo r t1 N2) (uniono N1 N2 N)])))]
+     [(and (not (set-pair? l)) (set-pair? r))
+      (uniono r l l+r)]
+     [(set-pair? l)
+      (let ([t1 (set-first l)]
+            [t2 (set-rest l)])
+        (fresh (N N1 N2)
+          (seto N)
+          (seto N1)
+          (seto N2)
+          (removeo l   t1 N1)
+          (removeo l+r t1 N)
+          (conde
+           [(!ino t1 r) (uniono N1 r N)]
+           [(removeo r t1 N2) (uniono N1 N2 N)])))]
+     [(and (var? l) (var? r))
+      (error 'uniono "Union of two variables not yet implemented")]
+     [else fail])))
 
 ; (State, Any -> SimpleConstraint), State, List -> SimpleConstraint
 ; Fold lst with proc and initial value init. If proc ever returns #f,
@@ -1099,7 +1151,7 @@ The scope of each RHS has access to prior binders, à la let*
                   `((absento . ,fa)))))
           (fm (if (null? fm)
                   fm
-                  `((∌ ,(cdar fm) ,@(map car fm)))))
+                  `((∌ ,(cdar fm) ,@(remove-duplicates (map car fm))))))
           (fe (if (null? fe)
                   fe
                   `((∥ . ,(drop-dot fe))))))
