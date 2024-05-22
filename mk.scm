@@ -530,12 +530,11 @@ The scope of each RHS has access to prior binders, à la let*
 ; C refers to the constraint store map
 ; c refers to an individual constraint record
 
-; SimpleConstraint: State -> (or/c #f State)
+; SimpleConstraint: Goal
 ;
-; (note that a SimpleConstraint is a Goal but a Goal is not a SimpleConstraint.
-;  SimpleConstraint implementations currently use this more restrained type.
-;  See `and-foldl` and `update-constraints`.)
 
+; Previously, SimpleConstraints where not traditional goals, see `and-foldl`.
+; They've been updated to be traditional goals instead, see `bind-foldl`.
 ; Invariants assumed for type constraints:
 ; 1. Must be positive, not negative. not-pairo wouldn't work.
 ; 2. Each type must have infinitely many possible values to avoid
@@ -763,8 +762,9 @@ The scope of each RHS has access to prior binders, à la let*
 
 ;; (Listof (Expander a)) -> (Expander a)
 ;; A goal constructor which takes a list of goals, conjoining them in series.
-;; `(then ...)` is equivalent to `(fresh () ...)`, but is a procedure instead of syntax
-;; Equivalent to a variadic `>=>` operator
+;; `(then ...)` is equivalent to `(fresh () ...)`,
+;; but is a procedure instead of syntax
+;; Equivalent to a variadic version of Haskell's `>=>` operator
 (define (then . goals)
   (define (then2 goal1 goal2)
     (lambda (st)
