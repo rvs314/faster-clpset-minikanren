@@ -434,10 +434,32 @@
           (,(set* 1 3 '_.0) ,(set* 1 2 3'_.0))
           (,(set* 2 3 '_.0) ,(set* 1 2 3'_.0))
           (,(set* 1 2 3 '_.0) ,(set* 1 2 3'_.0))))
-  (test "Union over two fresh variables"
+  (test "Union over fresh variables"
         (run* (p q r)
           (uniono p q r))
-        '()))
+        '(((_.0 _.1 _.2) (set _.0 _.1 _.2) (∪₃ (_.0 _.1 _.2)))))
+  (test "Several union constraints"
+        (run* (p q r s)
+          (uniono p q r)
+          (uniono p r s))
+        '(((_.0 _.1 _.2 _.3)
+           (set _.0 _.1 _.2 _.3)
+           (∪₃ (_.0 _.2 _.3) (_.0 _.1 _.2)))))
+  (test "Uniono updates trigger"
+        (run* (p q r)
+          (== r (set 1 2 3))
+          (uniono p q r))
+        (run* (p q r)
+          (uniono p q r)
+          (== r (set 1 2 3))))
+
+  (define (subseto small big)
+    (uniono small big big))
+
+  (test "Uniono to perform subset operations"
+        (run* (p q)
+          (subseto p q))
+        '(((_.0 _.1) (set _.0 _.1) (∪₃ (_.0 _.1 _.1))))))
 
 (if test-failed
     (display "Test Failed!")
