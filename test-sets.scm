@@ -17,6 +17,11 @@
   (newline)
   (cdr (last-pair parts)))
 
+(define-syntax run-unique*
+  (syntax-rules ()
+    [(run-unique* (v v* ...) g g* ...)
+     (unique (run* (v v* ...) g g* ...))]))
+
 ;; Set constructors
 (begin
   (test "set equality"
