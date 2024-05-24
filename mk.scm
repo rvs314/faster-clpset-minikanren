@@ -625,27 +625,30 @@ The scope of each RHS has access to prior binders, à la let*
   (symbolo symbol? sym symbol-compare)
   (seto    set?    set set-compare    valid-seto))
 
-(define (add-to-D st v d)
-  (let* ((c (lookup-c st v))
-         (c^ (c-with-D c (cons d (c-D c)))))
-    (set-c st v c^)))
+(define (add-to-D var assoc-list)
+  (assert (pair? assoc-list))
+  (lambda (st)
+    (let* ((c  (lookup-c st v))
+           (c^ (c-with-D c (cons d (c-D c)))))
+      (set-c st v c^))))
 
 ; (Listof Association) -> Goal
 (define (=/=* S+)
   (lambda (st)
     (let ((S.added-inf (unify* S+ (subst-with-scope (state-S st) nonlocal-scope))))
-      (fold-inf
-       (lambda (st S.added)
-         (and st
-              (let ((added (cdr S.added)))
-                (and (pair? added)
-                     (let* ([el (car added)]
-                            [st (add-to-D st (car el) added)])
-                       (if (var? (cdr el))
-                           (add-to-D st (cdr el) added)
-                           st))))))
-       st
-       S.added-inf))))
+      ((map-then-inf
+        (lambda (S.added)
+          (let ([added (cdr S.added)])
+            (if (null? added)
+                fail
+                (let ([assoc (car added)])
+                  (fresh ()
+                    (add-to-D (lhs assoc) added)
+                    (if (var? (rhs assoc))
+                        (add-to-D (rhs assoc) added)
+                        succeed))))))
+        S.added-inf)
+       st))))
 
 ; Term, Term -> Goal
 (define (=/= u v)
@@ -866,6 +869,22 @@ The scope of each RHS has access to prior binders, à la let*
     [(c)   (proc init c)]
     [(c f) (let ((init^ (proc init c)))
              (fold-inf proc init^ (f)))]))
+
+;; (elem -> (Expander a)) (Streamof elem) a -> (Streamof a)
+;; An expander which takes a stream of values and a procedure
+;; for turning each of those values into an expander, folds
+;; the stream into a single expander which binds the elements.
+;; The expander terminates iff the stream terminates.
+;; This can't just be a `bind-inf`, as streams cannot contain
+;; procedures (and therefore cannot contain Expanders).
+(define (map-bind-inf proc strm init)
+  (case-inf strm
+    [()    el]
+    [(f)   (lambda (e)
+             ((map-bind-inf proc (f)) e))]
+    [(c)   (proc c)]
+    [(c f) (lambda (e)
+             (bind (proc c) (map-then-inf proc (f))))]))
 
 ;; (in -> out) -> Streamof in -> Streamof out
 ;; Maps the stream over a given procedure
