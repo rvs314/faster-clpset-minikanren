@@ -625,29 +625,51 @@ The scope of each RHS has access to prior binders, à la let*
   (symbolo symbol? sym symbol-compare)
   (seto    set?    set set-compare    valid-seto))
 
+;; Var (Listof Association) -> Goal
+;; Add the primitive constraint that at least one of the associations hold
 (define (add-to-D var assoc-list)
   (assert (pair? assoc-list))
   (lambda (st)
-    (let* ((c  (lookup-c st v))
-           (c^ (c-with-D c (cons d (c-D c)))))
-      (set-c st v c^))))
+    (let* ([c   (lookup-c st var)]
+           [c^  (c-with-D c (cons assoc-list (c-D c)))]
+           [st^ (set-c st var c^)])
+      (if (pair? (cdr assoc-list))
+          st^
+          (foldl
+           (lambda (u st)
+             (let ([t (rhs (car assoc-list))])
+               (cond
+                [(find (lambda (v) (var-eq? var v)) u)
+                 =>
+                 (lambda (Z)
+                   (bind st
+                         (fresh (N)
+                           (apply uniono u)
+                           (conde
+                            [(ino N Z) (!ino N t)]
+                            [(ino N t) (!ino N Z)]
+                            [(== Z ∅) (=/= t ∅)]))))]
+                [else
+                 (error 'add-to-D "Invalid uniono constraint over variable" u var)])))
+           st^
+           (c-U c))))))
 
 ; (Listof Association) -> Goal
 (define (=/=* S+)
   (lambda (st)
     (let ((S.added-inf (unify* S+ (subst-with-scope (state-S st) nonlocal-scope))))
-      ((map-then-inf
-        (lambda (S.added)
-          (let ([added (cdr S.added)])
-            (if (null? added)
-                fail
-                (let ([assoc (car added)])
-                  (fresh ()
-                    (add-to-D (lhs assoc) added)
-                    (if (var? (rhs assoc))
-                        (add-to-D (rhs assoc) added)
-                        succeed))))))
-        S.added-inf)
+      (map-bind-inf
+       (lambda (S.added)
+         (let ([added (cdr S.added)])
+           (if (null? added)
+               fail
+               (let ([assoc (car added)])
+                 (fresh ()
+                   (add-to-D (lhs assoc) added)
+                   (if (var? (rhs assoc))
+                       (add-to-D (rhs assoc) added)
+                       succeed))))))
+       S.added-inf
        st))))
 
 ; Term, Term -> Goal
@@ -746,22 +768,21 @@ The scope of each RHS has access to prior binders, à la let*
   (lambda (st)
     (let ((term1 (walk term1 (state-S st)))
           (term2 (walk term2 (state-S st))))
-      (let ((st^ ((=/= term1 term2) st)))
-        (and st^
-             (cond
-              ((pair? term2)
-               (let ((st^^ ((absento term1 (car term2)) st^)))
-                 (and st^^ ((absento term1 (cdr term2)) st^^))))
-              ((set? term2)
-               ((set-absento term2) st))
-              ((var? term2)
-               (let* ((c (lookup-c st^ term2))
-                      (A (c-A c)))
-                 (if (memv term1 A)
-                   st^
-                   (let ((c^ (c-with-A c (cons term1 A))))
-                     (set-c st^ term2 c^)))))
-              (else st^)))))))
+      (let*-bind ([st^ ((=/= term1 term2) st)])
+        (cond
+         ((pair? term2)
+          (let*-bind ([st^^ ((absento term1 (car term2)) st^)])
+            ((absento term1 (cdr term2)) st^^)))
+         ((set? term2)
+          ((set-absento term2) st))
+         ((var? term2)
+          (let*-bind ([c (lookup-c st^ term2)])
+            (let* ((A (c-A c)))
+              (if (memv term1 A)
+                st^
+                (let ((c^ (c-with-A c (cons term1 A))))
+                  (set-c st^ term2 c^))))))
+         (else st^))))))
 
 (defrel (removeo set elem set-elem)
   (== set (set-cons elem set-elem))
@@ -831,6 +852,9 @@ The scope of each RHS has access to prior binders, à la let*
     (ino N p)
     (ino N q)))
 
+(define (subseteqo small big)
+  (uniono small big big))
+
 ; (State, Any -> SimpleConstraint), State, List -> SimpleConstraint
 ; Fold lst with proc and initial value init. If proc ever returns #f,
 ; return with #f immediately. Used for applying a series of
@@ -870,21 +894,21 @@ The scope of each RHS has access to prior binders, à la let*
     [(c f) (let ((init^ (proc init c)))
              (fold-inf proc init^ (f)))]))
 
-;; (elem -> (Expander a)) (Streamof elem) a -> (Streamof a)
+;; (elem -> (Expander a)) (Streamof elem) (Streamof a) -> (Streamof a)
 ;; An expander which takes a stream of values and a procedure
 ;; for turning each of those values into an expander, folds
 ;; the stream into a single expander which binds the elements.
 ;; The expander terminates iff the stream terminates.
 ;; This can't just be a `bind-inf`, as streams cannot contain
 ;; procedures (and therefore cannot contain Expanders).
-(define (map-bind-inf proc strm init)
+(define (map-bind-inf proc strm init-strm)
   (case-inf strm
-    [()    el]
-    [(f)   (lambda (e)
-             ((map-bind-inf proc (f)) e))]
-    [(c)   (proc c)]
-    [(c f) (lambda (e)
-             (bind (proc c) (map-then-inf proc (f))))]))
+    [()    init-strm]
+    [(f)   (lambda () (map-bind-inf proc (f) init-strm))]
+    [(c)   (bind init-strm (proc c))]
+    [(c f) (let ([strm^ (bind init-strm (proc c))])
+             (lambda ()
+              (map-bind-inf proc (f) strm^)))]))
 
 ;; (in -> out) -> Streamof in -> Streamof out
 ;; Maps the stream over a given procedure

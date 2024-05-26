@@ -1,26 +1,35 @@
-;; Chez-specific code to get better debug info.
-(eval-when (load)
-  (optimize-level 0)
-  (debug-level 3))
+;; Initial Loads
+(begin
+  ;; Chez-specific code to get better debug info.
+  (eval-when (eval load)
+    (optimize-level 0)
+    (debug-level 3))
 
-(load "./test-check.scm")
-(load "./sets.scm")
-(load "./mk-vicare.scm")
-(load "./mk.scm")
-;; FIXME: call test-sets from test-all, not other way around
-;; (load "./test-all.scm")
+  (load "./test-check.scm")
+  (load "./sets.scm")
+  (load "./mk-vicare.scm")
+  (load "./mk.scm")
 
-(printf "set-tests~%")
+  (printf "set-tests~%"))
 
-(define (log . parts)
-  (display parts)
-  (newline)
-  (cdr (last-pair parts)))
+;; Utilities
+(begin
+  (define (log . parts)
+    (display parts)
+    (newline)
+    (cdr (last-pair parts)))
 
-(define-syntax run-unique*
-  (syntax-rules ()
-    [(run-unique* (v v* ...) g g* ...)
-     (unique (run* (v v* ...) g g* ...))]))
+  (define-syntax run-unique*
+    (syntax-rules ()
+      [(run-unique* (v v* ...) g g* ...)
+       (unique (run* (v v* ...) g g* ...))]))
+
+  (define _.0 '_.0)
+  (define _.1 '_.1)
+  (define _.2 '_.2)
+  (define _.3 '_.3)
+  (define _.4 '_.4)
+  (define _.5 '_.5))
 
 ;; Set constructors
 (begin
@@ -41,7 +50,7 @@
         (set 0 1 2)))
 
 ;; Seto
-(begin 
+(begin
   (test "set-null unifies correctly"
         (run* (q)
           (== (cons (cons 1 ∅) ∅)
@@ -75,7 +84,7 @@
         (run* (p q)
           (seto q)
           (== q (set-cons 1 p)))
-        `(((_.0 ,(set-cons 1 '_.0)) (set _.0))))
+        `(((_.0 ,(set-cons 1 _.0)) (set _.0))))
 
   (test "sets aren't other things"
         (run* (q)
@@ -87,7 +96,7 @@
         '()))
 
 ;; Ino
-(begin 
+(begin
   (test "ino works on set-pairs"
         (run* (q)
           (ino 3 (set 2 4 9 3 1)))
@@ -101,7 +110,7 @@
   (test "ino works on variables"
         (run* (q)
           (ino 3 q))
-        `(,(set-cons 3 '_.0)))
+        `((,(set-cons 3 _.0) (set _.0))))
 
   (test "ino works on constraint update"
         (run* (q)
@@ -137,7 +146,7 @@
           (fresh (k)
             (== k (set-cons 1 q))
             (ino 1 k)))
-        `(_.0 ,(set-cons 1 '_.0)))
+        `(_.0 (,(set-cons 1 '_.0) (set _.0))))
 
   (test "ino generates duplicates (2)"
         (run* (q)
@@ -146,7 +155,7 @@
 
 ;; Set unification
 (begin
-  
+
   (test "literal sets unify correctly"
         (run* (q)
           (== (set 1 2) (set 1 2)))
@@ -415,6 +424,7 @@
       (== p (set 1 2 3)))
     `(((,(set 1 2 3) _.0) (set _.0) (∌ _.0 1 2 3)))))
 
+;; Uniono
 (begin
   (test "Union with the empty set is the identity"
         (run* (q)
@@ -431,14 +441,14 @@
   (test "Union with a known set becomes membership"
         (run* (p q)
           (uniono (set 1 2 3) p q))
-        `(((_.0 ,(set* 1 2 3 '_.0)) (set _.0) (∌ _.0 1 2 3))
-          (,(set* 1 '_.0) ,(set* 1 2 3 '_.0))
-          (,(set* 2 '_.0) ,(set* 1 2 3'_.0))
-          (,(set* 1 2 '_.0) ,(set* 1 2 3'_.0))
-          (,(set* 3 '_.0) ,(set* 1 2 3'_.0))
-          (,(set* 1 3 '_.0) ,(set* 1 2 3'_.0))
-          (,(set* 2 3 '_.0) ,(set* 1 2 3'_.0))
-          (,(set* 1 2 3 '_.0) ,(set* 1 2 3'_.0))))
+        `(((_.0 ,(set* 1 2 3 _.0)) (set _.0) (∌ _.0 1 2 3))
+          ((,(set* 1 _.0)     ,(set* 1 2 3 _.0)) (set _.0) (∌ _.0 1 2 3))
+          ((,(set* 2 _.0)     ,(set* 1 2 3 _.0)) (set _.0) (∌ _.0 1 2 3))
+          ((,(set* 1 2 _.0)   ,(set* 1 2 3 _.0)) (set _.0) (∌ _.0 1 2 3))
+          ((,(set* 3 _.0)     ,(set* 1 2 3 _.0)) (set _.0) (∌ _.0 1 2 3))
+          ((,(set* 1 3 _.0)   ,(set* 1 2 3 _.0)) (set _.0) (∌ _.0 1 2 3))
+          ((,(set* 2 3 _.0)   ,(set* 1 2 3 _.0)) (set _.0) (∌ _.0 1 2 3))
+          ((,(set* 1 2 3 _.0) ,(set* 1 2 3 _.0)) (set _.0) (∌ _.0 1 2 3))))
   (test "Union over fresh variables"
         (run* (p q r)
           (uniono p q r))
@@ -458,18 +468,64 @@
           (uniono p q r)
           (== r (set 1 2 3))))
 
-  (define (subseto small big)
-    (uniono small big big))
-
   (test "Uniono to perform subset operations"
         (run* (p q)
           (subseto p q))
-        '(((_.0 _.1) (set _.0 _.1) (∪₃ (_.0 _.1 _.1))))))
+        '(((_.0 _.1) (set _.0 _.1) (∪₃ (_.0 _.1 _.1)))))
 
-(if test-failed
-    (display "Test Failed!")
-    (display "Tests Passed!"))
-(newline)
+  (test "Union + Disequality (1)"
+        (run* (p q r)
+          (uniono p q r)
+          (=/= r (set 1 2 3)))
+        `((,∅ ,∅ ,∅)
+          ((_.0 _.1 _.2)
+           (=/= ((_.2 ,(set 1 2 3))))
+           (set _.0 _.1 _.2) (∌ _.2 1) (∪₃ (_.0 _.1 _.2)))
+          ((_.0 _.1 _.2)
+           (=/= ((_.2 ,(set 1 2 3))))
+           (set _.0 _.1 _.2) (∌ _.2 2) (∪₃ (_.0 _.1 _.2)))
+          ((_.0 _.1 _.2)
+           (=/= ((_.2 ,(set 1 2 3))))
+           (set _.0 _.1 _.2) (∌ _.2 3) (∪₃ (_.0 _.1 _.2)))
+          ((,(set* _.0 _.1) _.2 ,(set* _.0 _.3))
+           (=/= ((_.0 1)) ((_.0 2)) ((_.0 3)))
+           (set _.1 _.2 _.3) (∌ _.1 _.0) (∪₃ (_.1 _.2 _.3)))
+          ((_.0 ,(set* _.1 _.2) ,(set* _.1 _.3))
+           (=/= ((_.1 1)) ((_.1 2)) ((_.1 3)))
+           (set _.0 _.2 _.3) (∌ _.2 _.1) (∪₃ (_.0 _.2 _.3)))
+          ((,(set* _.0 _.1) _.2 ,(set* _.0 _.3))
+           (=/= ((_.0 1)) ((_.0 2)) ((_.0 3)))
+           (set _.1 _.2 _.3) (∌ _.1 _.0) (∪₃ (_.1 _.2 _.3)))
+          ((,(set* _.0 _.1) ,(set* _.0 _.2) ,(set* _.0 _.3))
+           (=/= ((_.0 1)) ((_.0 2)) ((_.0 3)))
+           (set _.1 _.2 _.3) (∌ _.1 _.0) (∪₃ (_.1 _.2 _.3)))
+          ((_.0 ,(set* _.1 _.2) ,(set* _.1 _.3))
+           (=/= ((_.1 1)) ((_.1 2)) ((_.1 3)))
+           (set _.0 _.2 _.3) (∌ _.2 _.1) (∪₃ (_.0 _.2 _.3)))
+          ((,(set* _.0 _.1) ,(set* _.0 _.2) ,(set* _.0 _.3))
+           (=/= ((_.0 1)) ((_.0 2)) ((_.0 3)))
+           (set _.1 _.2 _.3) (∌ _.1 _.0) (∪₃ (_.1 _.2 _.3)))))
+
+  (test "Union + Disequality (2)"
+        (run* (p q r)
+          (uniono p q r)
+          (=/= q (set 1 2)))
+
+        `(((_.0 ,∅ _.0)
+           (set _.0))
+          ((_.0 _.1 _.2)
+           (=/= ((_.1 ,(set 1 2)))) (set _.0 _.1 _.2) (∌ _.1 1) (∪₃ (_.0 _.1 _.2)))
+          ((_.0 _.1 _.2)
+           (=/= ((_.1 ,(set 1 2)))) (set _.0 _.1 _.2) (∌ _.1 2) (∪₃ (_.0 _.1 _.2)))
+          ((_.0 ,(set* _.1 _.2) ,(set* _.1 _.3))
+           (=/= ((_.1 1)) ((_.1 2))) (set _.0 _.2 _.3) (∌ _.0 _.1) (∪₃ (_.2 _.0 _.3)))
+          ((,(set* _.0 _.1) ,(set* _.0 _.2) ,(set* _.0 _.3))
+           (=/= ((_.0 1)) ((_.0 2))) (set _.1 _.2 _.3) (∌ _.1 _.0) (∪₃ (_.2 _.1 _.3)))
+          ((_.0 ,(set* _.1 _.2) ,(set* _.1 _.3))
+           (=/= ((_.1 1)) ((_.1 2))) (set _.0 _.2 _.3) (∌ _.0 _.1) (∪₃ (_.2 _.0 _.3)))
+          ((,(set* _.0 _.1) ,(set* _.0 _.2) ,(set* _.0 _.3))
+           (=/= ((_.0 1)) ((_.0 2))) (set _.1 _.2 _.3) (∌ _.1 _.0) (∪₃ (_.2 _.1 _.3))))))
+
 ;; One-off from Will
 (begin
   (test "Will's big test"
@@ -498,3 +554,10 @@
      (,(set* _.0 _.1 _.2) ,(set* _.3 _.4)     ,(set* _.0 _.1 _.2) ,(set* _.3 _.4))
      (,(set* _.0 _.1)     ,(set* _.2 _.3 _.4) ,(set* _.0 _.1)     ,(set* _.2 _.3 _.4))
      (,(set* _.0 _.1 _.2) ,(set* _.3 _.4 _.5) ,(set* _.0 _.1 _.2) ,(set* _.3 _.4 _.5)))))
+
+;; Test Indicator
+(begin
+  (if test-failed
+      (display "Test Failed!")
+      (display "Tests Passed!"))
+  (newline))
