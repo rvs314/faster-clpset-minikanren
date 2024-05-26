@@ -987,12 +987,12 @@ The scope of each RHS has access to prior binders, à la let*
     (let* ((S (state-S st))
            (v (walk* x S))
            (R (reify-S v (subst empty-subst-map nonlocal-scope)))
-           (v (simplify-S v R))
-           (relevant-vars (vars v)))
+           (relevant-vars (vars v))
+           (v (simplify-S (walk* v R) R)))
       (let*-values (((T D A M E U) (extract-and-normalize st relevant-vars x))
                     ((D A M E U) (drop-irrelevant D A M E U relevant-vars))
                     ((D A)   (drop-subsumed D A st)))
-        (form (walk* v R)
+        (form v
               (walk* D R)
               (walk* T R)
               (walk* A R)
@@ -1343,6 +1343,6 @@ The scope of each RHS has access to prior binders, à la let*
    [(set-pair? obj)
     (let* ([s (normalize-set obj sub)]
            [h (unique (map (lambda (x) (simplify-S x sub)) (set-head s)))]
-           [t (set-tail s)])
+           [t (simplify-S (set-tail s) sub)])
       (make-nonempty-set h t))]
    [else obj]))
