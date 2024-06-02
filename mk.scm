@@ -1240,7 +1240,7 @@ The scope of each RHS has access to prior binders, à la let*
               T))
         (fd (sort-D D))
         (fa (sort-lex A))
-        (fm (sort-lex M))
+        (fm (remove-duplicates (sort-lex M)))
         (fe (remove-duplicates (sort-E E)))
         (fu (remove-duplicates (sort-U U))))
     (let ((fd (if (null? fd) fd
@@ -1251,7 +1251,7 @@ The scope of each RHS has access to prior binders, à la let*
                   `((absento . ,fa)))))
           (fm (if (null? fm)
                   fm
-                  `((∌ ,(cdar fm) ,@(remove-duplicates (map car fm))))))
+                  `((∉ . ,(drop-dot fm)))))
           (fe (if (null? fe)
                   fe
                   `((∥ . ,(drop-dot fe)))))
