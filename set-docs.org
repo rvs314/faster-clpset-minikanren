@@ -1,0 +1,49 @@
+#+title: CLP(Set) API
+
+* Set Construction
+
+The set $\emptyset$ is written either as ~(set)~, ~∅~ or ~empty-set~.
+The set $\{p\} \cup T$ is written ~(set-cons p T)~, á la ~cons~.
+
+Note: unlike ~cons~, ~(set-cons p T)~ may unify with ~T~ if ~p~ is already a member of ~T~.
+
+The set $\{x, y, z, \dots\}$ can also be written ~(set x y z ...)~, á la ~list~.
+The set $\{x, y, z, \dots\} \cup T$ can also be written ~(set* x y z ... T)~, á la ~list*~.
+
+The set $\{x, y, z\}$ when displayed using ~write~ is written as ~(set x y z)~.
+The set $\{x, y, z\} \cup T$ when displayed using ~write~ is written as ~(set* x y z T)~.
+The set $\emptyset$ when displayed using ~write~ is written as ~∅~.
+
+Note: There is no reader implementation for sets due to limit in chez scheme's ~record-reader~ facilities. You cannot create a set using ~quote~.
+
+For the internal implementation of sets, see: [[file:sets.scm]]
+
+* Set Unification
+
+Set unification is unaffected by duplicates or differences in ordering.
+For example, the following sets all unify:
+- ~(set 1 2 3)~
+- ~(set 1 1 2 3)~
+- ~(set 3 2 1)~
+- ~(set 3 2 3 1 1 3)~
+
+* Set Non-Membership
+
+The set-non-membership constraint ~(!ino p q)~ holds IFF ~p~ cannot unify with any member of ~q~.
+
+* Set Disjointedness
+
+The set-disjointedness constraint ~(disj p q)~ holds IFF ~p~ and ~q~ share no elements, or that no element of either set can unify with an element in the other.
+
+* Set Union
+
+The set-union constraint ~(uniono p q r)~ holds IFF ~r~ contains all the members of ~p~ and all the members of ~q~, but no others.
+
+* Derived Constraints
+
+- The set-membership goal ~(ino p q)~ holds IFF ~(fresh (N) (== q (set-cons p N)))~
+- The set-removal goal ~(removeo p q r)~ holds IFF ~(conj (== p (set-cons q r)) (!ino q r))~
+- The non-union goal ~(!uniono l r m)~ holds IFF one of:
+  - An element of ~m~ is in neither ~l~ nor ~r~
+  - An element of ~l~ or ~r~ is not in ~m~
+- The subset-equality-constraint ~(subseteqo s b)~ holds IFF ~(uniono s b b)~
