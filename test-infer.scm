@@ -27,7 +27,7 @@
        (=/= y x)
        (not-in-envo x rest)))))
 
-(test "types"
+(test-unordered "types"
   (run 10 (q) (fresh (t exp) (!- exp '() t)  (== `(,exp => ,t) q)))
   '((((lambda (_.0) _.0) => (-> _.1 _.1)) (sym _.0))
   (((lambda (_.0) (lambda (_.1) _.1))

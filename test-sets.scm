@@ -38,15 +38,7 @@
   (define-syntax run-unique
     (syntax-rules ()
       [(run-unique n (q) g0 g ...)
-       (take-unique
-        n
-        (suspend
-          ((fresh (q) g0 g ...
-                  (lambda (st)
-                    (let ((st (state-with-scope st nonlocal-scope)))
-                      (let ((z ((reify q) st)))
-                        (cons z (lambda () (lambda () #f)))))))
-           empty-state)))]
+       (take-unique n (toplevel-query (q) g0 g ...))]
       [(run-unique n (q0 q1 q ...) g0 g ...)
        (run-unique n (x)
          (fresh (q0 q1 q ...)
