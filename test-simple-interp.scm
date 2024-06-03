@@ -1,4 +1,4 @@
-(test "running backwards"
+(test-unordered "running backwards"
   (run 5 (q) (evalo q '(closure y x ((x . (closure z z ()))))))
   '(((lambda (x) (lambda (y) x)) (lambda (z) z))
     ((lambda (x) (x (lambda (y) x))) (lambda (z) z))
@@ -20,7 +20,7 @@
   (run* (q) (evalo '((lambda (x) (lambda (y) x)) (lambda (z) z)) q))
   '((closure y x ((x . (closure z z ()))))))
 
-(test "fully-running-backwards"
+(test-unordered "fully-running-backwards"
   (run 5 (q)
     (fresh (e v)
       (evalo e v)

@@ -47,14 +47,14 @@
       ((== y x) (== v t))
       ((=/= y x) (lookupo x rest t)))))
 
-(test "1 quine"
+(test-unordered "1 quine"
   (run 1 (q) (eval-expo q '() q))
   '((((lambda (_.0) (list _.0 (list 'quote _.0)))
     '(lambda (_.0) (list _.0 (list 'quote _.0))))
    (=/= ((_.0 closure)) ((_.0 list)) ((_.0 quote)))
    (sym _.0))))
 
- (test "2 quines"
+ (test-unordered "2 quines"
    (run 2 (q) (eval-expo q '() q))
    '((((lambda (_.0) (list _.0 (list 'quote _.0)))
     '(lambda (_.0) (list _.0 (list 'quote _.0))))
@@ -69,7 +69,7 @@
     (sym _.0 _.1)
     (absento (closure _.2)))))
 
- (test "3 quines"
+ (test-unordered "3 quines"
    (run 3 (q) (eval-expo q '() q))
    '((((lambda (_.0) (list _.0 (list 'quote _.0)))
     '(lambda (_.0) (list _.0 (list 'quote _.0))))
@@ -92,7 +92,7 @@
     (sym _.0 _.1)
     (absento (closure _.2)))))
 
- (test "5 quines"
+ (test-unordered "5 quines"
    (run 5 (q) (eval-expo q '() q))
    '((((lambda (_.0) (list _.0 (list 'quote _.0)))
     '(lambda (_.0) (list _.0 (list 'quote _.0))))
@@ -127,7 +127,7 @@
          ((_.0 quote)) ((_.1 closure)))
     (sym _.0 _.1))))
 
- (test "10 quines"
+ (test-unordered "10 quines"
    (run 10 (q) (eval-expo q '() q))
    '((((lambda (_.0) (list _.0 (list 'quote _.0)))
     '(lambda (_.0) (list _.0 (list 'quote _.0))))
@@ -200,7 +200,7 @@
          ((_.0 quote)) ((_.1 closure)) ((_.1 list)) ((_.1 quote)))
     (sym _.0 _.1))))
 
- (test "40 quines"
+ (test-unordered "40 quines"
    (run 40 (q) (eval-expo q '() q))
    '((((lambda (_.0) (list _.0 (list 'quote _.0)))
     '(lambda (_.0) (list _.0 (list 'quote _.0))))
@@ -573,7 +573,7 @@
    (sym _.0 _.1 _.2)
    (absento (closure _.3)))))
 
-(test "2 twines"
+(test-unordered "2 twines"
   (run 2 (x) (fresh (p q)
 	       (=/= p q)
 	       (eval-expo p '() q)
@@ -607,7 +607,7 @@
     (sym _.0 _.1)
     (absento (closure _.2)))))
 
-(test "4 thrines"
+(test-unordered "4 thrines"
   (run 4 (x)
     (fresh (p q r)
       (=/= p q)

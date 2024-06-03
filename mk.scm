@@ -430,6 +430,14 @@ Ex:
         ((c) (cons c '()))
         ((c f) (cons c (take (and n (- n 1)) (f)))))))
 
+; (Streamof a) -> (or/c (values a (Streamof a)) (values #f #f))
+(define (head+tail f)
+  (case-inf f
+    [()    (values #f #f)]
+    [(f)   (head+tail (f))]
+    [(c)   (values c #f)]
+    [(c f) (values c f)]))
+
 (define (list->stream lst)
   (cond
    [(null? lst) #f]
@@ -497,17 +505,21 @@ The scope of each RHS has access to prior binders, à la let*
              (bind* (g0 st) g ...)
              (bind* (g1 st) g^ ...) ...)))))))
 
+(define-syntax toplevel-query
+  (syntax-rules ()
+    [(toplevel-query (q) g0 g ...)
+     (suspend
+       ((fresh (q) g0 g ...
+               (lambda (st)
+                 (let ((st (state-with-scope st nonlocal-scope)))
+                   (let ((z ((reify q) st)))
+                     (cons z (lambda () (lambda () #f)))))))
+        empty-state))]))
+
 (define-syntax run
   (syntax-rules ()
     ((_ n (q) g0 g ...)
-     (take n
-           (suspend
-             ((fresh (q) g0 g ...
-                     (lambda (st)
-                       (let ((st (state-with-scope st nonlocal-scope)))
-                         (let ((z ((reify q) st)))
-                           (cons z (lambda () (lambda () #f)))))))
-              empty-state))))
+     (take n (toplevel-query (q) g0 g ...)))
     ((_ n (q0 q1 q ...) g0 g ...)
      (run n (x)
        (fresh (q0 q1 q ...)
