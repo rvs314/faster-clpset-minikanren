@@ -19,37 +19,6 @@
     (newline)
     (cdr (last-pair parts)))
 
-
-  (define (take-unique k strm)
-    (define seen-values (make-hashtable equal-hash equal?))
-    (let loop ([k k] [strm strm])
-      (cond
-       [(not strm)        #f]
-       [(and k (zero? k)) #f]
-       [else
-        (case-inf strm
-          [()    #f]
-          [(f)   (loop k (f))]
-          [(c)   (hashtable-set! seen-values c #t)]
-          [(c f) (begin (hashtable-set! seen-values c #t)
-                        (loop (and k (sub1 k)) (f)))])]))
-    (sort-lex (vector->list (hashtable-keys seen-values))))
-
-  (define-syntax run-unique
-    (syntax-rules ()
-      [(run-unique n (q) g0 g ...)
-       (take-unique n (toplevel-query (q) g0 g ...))]
-      [(run-unique n (q0 q1 q ...) g0 g ...)
-       (run-unique n (x)
-         (fresh (q0 q1 q ...)
-           g0 g ...
-           (== (list q0 q1 q ...) x)))]))
-
-  (define-syntax run-unique*
-    (syntax-rules ()
-      [(run-unique* (q ...) g g* ...)
-       (run-unique #f (q ...) g g* ...)]))
-
   (define _.0 '_.0)
   (define _.1 '_.1)
   (define _.2 '_.2)

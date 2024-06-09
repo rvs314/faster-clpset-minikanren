@@ -1,4 +1,12 @@
 
+(define _.0 '_.0)
+(define _.1 '_.1)
+(define _.2 '_.2)
+(define _.3 '_.3)
+(define _.4 '_.4)
+(define _.5 '_.5)
+
+
 (define empty-env ∅)
 (define (ext-envo x v env env^)
   (fresh ()
