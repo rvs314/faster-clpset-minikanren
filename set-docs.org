@@ -5,7 +5,7 @@
 The set $\emptyset$ is written either as ~(set)~, ~∅~ or ~empty-set~.
 The set $\{p\} \cup T$ is written ~(set-cons p T)~, á la ~cons~.
 
-Note: unlike ~cons~, ~(set-cons p T)~ may unify with ~T~ if ~p~ is already a member of ~T~.
+Note: unlike ~cons~, ~(set-cons p T)~ may be equal to ~T~ if ~p~ is already a member of ~T~.
 
 The set $\{x, y, z, \dots\}$ can also be written ~(set x y z ...)~, á la ~list~.
 The set $\{x, y, z, \dots\} \cup T$ can also be written ~(set* x y z ... T)~, á la ~list*~.
@@ -21,7 +21,7 @@ For the internal implementation of sets, see: [[file:sets.scm]]
 * Set Unification
 
 Set unification is unaffected by duplicates or differences in ordering.
-For example, the following sets all unify:
+For example, the following sets are all equal:
 - ~(set 1 2 3)~
 - ~(set 1 1 2 3)~
 - ~(set 3 2 1)~
@@ -29,11 +29,11 @@ For example, the following sets all unify:
 
 * Set Non-Membership
 
-The set-non-membership constraint ~(!ino p q)~ holds IFF ~p~ cannot unify with any member of ~q~.
+The set-non-membership constraint ~(!ino p q)~ holds IFF ~p~ is not equal to any member of ~q~.
 
 * Set Disjointedness
 
-The set-disjointedness constraint ~(disj p q)~ holds IFF ~p~ and ~q~ share no elements, or that no element of either set can unify with an element in the other.
+The set-disjointedness constraint ~(disj p q)~ holds IFF ~p~ and ~q~ share no elements, or that no element of either set are equal to an element in the other.
 
 * Set Union
 
