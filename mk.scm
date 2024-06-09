@@ -1386,16 +1386,13 @@ The scope of each RHS has access to prior binders, à la let*
 (define (take-unique k strm)
   (define seen-values (make-hashtable equal-hash equal?))
   (let loop ([k k] [strm strm])
-    (cond
-     [(not strm)        #f]
-     [(and k (zero? k)) #f]
-     [else
-      (case-inf strm
-        [()    #f]
-        [(f)   (loop k (f))]
-        [(c)   (hashtable-set! seen-values c #t)]
-        [(c f) (begin (hashtable-set! seen-values c #t)
-                      (loop (and k (sub1 k)) (f)))])]))
+    (and (not (and k (zero? k)))
+         (case-inf strm
+           [()    #f]
+           [(f)   (loop k (f))]
+           [(c)   (hashtable-set! seen-values c #t)]
+           [(c f) (begin (hashtable-set! seen-values c #t)
+                         (loop (and k (sub1 k)) (f)))])))
   (sort-lex (vector->list (hashtable-keys seen-values))))
 
 (define-syntax run-unique
