@@ -1,3 +1,8 @@
+(eval-when (compile load eval)
+  (load "./test-check.scm")
+  (load "./sets.scm")
+  (load "./mk-vicare.scm")
+  (load "./mk.scm"))
 
 (define _.0 '_.0)
 (define _.1 '_.1)
