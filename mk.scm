@@ -691,7 +691,7 @@ The scope of each RHS has access to prior binders, à la let*
 ;; Term, Term -> Goal
 ;; Holds when `i` is a member of `s`
 (define (ino i s)
-  (project (s)
+  (project0 (s)
     (cond
      [(set-pair? s)
       (conde
@@ -720,7 +720,7 @@ The scope of each RHS has access to prior binders, à la let*
 ;; Goal which succeeds iff the item is not a member of a given set
 (defrel (!ino i s)
   (seto s)
-  (project (s)
+  (project0 (s)
     (cond
      [(set-pair? s)
       (fresh ()
@@ -745,7 +745,7 @@ The scope of each RHS has access to prior binders, à la let*
 (defrel (disjo p q)
   (seto p)
   (seto q)
-  (project (p q)
+  (project0 (p q)
     (begin
       (cond
        [(or (null-set? p) (null-set? q))
@@ -812,7 +812,7 @@ The scope of each RHS has access to prior binders, à la let*
   (seto l)
   (seto r)
   (seto l+r)
-  (project (l r l+r)
+  (project0 (l r l+r)
     (cond
      [(equal? l r)    (== l l+r)]
      [(set-null? l+r) (fresh ()
@@ -1004,6 +1004,13 @@ The scope of each RHS has access to prior binders, à la let*
     ((_ (x ...) g g* ...)
      (lambda (st)
        (let ((x (walk* x (state-S st))) ...)
+         ((fresh () g g* ...) st))))))
+
+(define-syntax project0
+  (syntax-rules ()
+    ((_ (x ...) g g* ...)
+     (lambda (st)
+       (let ((x (walk x (state-S st))) ...)
          ((fresh () g g* ...) st))))))
 
 (define succeed (lambda (x) x))
