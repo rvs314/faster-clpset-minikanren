@@ -8,23 +8,7 @@
   (load "./test-check.scm")
   (load "./sets.scm")
   (load "./mk-vicare.scm")
-  (load "./mk.scm")
-
-  (printf "set-tests~%"))
-
-;; Utilities
-(begin
-  (define (log . parts)
-    (display parts)
-    (newline)
-    (cdr (last-pair parts)))
-
-  (define _.0 '_.0)
-  (define _.1 '_.1)
-  (define _.2 '_.2)
-  (define _.3 '_.3)
-  (define _.4 '_.4)
-  (define _.5 '_.5))
+  (load "./mk.scm"))
 
 ;; Set constructors
 (begin
@@ -589,10 +573,3 @@
      (,(set* _.0 _.1 _.2) ,(set* _.3 _.4)     ,(set* _.0 _.1 _.2) ,(set* _.3 _.4))
      (,(set* _.0 _.1)     ,(set* _.2 _.3 _.4) ,(set* _.0 _.1)     ,(set* _.2 _.3 _.4))
      (,(set* _.0 _.1 _.2) ,(set* _.3 _.4 _.5) ,(set* _.0 _.1 _.2) ,(set* _.3 _.4 _.5)))))
-
-;; Test Indicator
-(begin
-  (if test-failed
-      (display "Test Failed!")
-      (display "Tests Passed!"))
-  (newline))

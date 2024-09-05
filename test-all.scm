@@ -39,3 +39,13 @@
 (load "test-numbers.scm")
 
 (load "full-interp.scm")
+
+(printf "test-sets\n")
+(load "test-sets.scm")
+
+;; Test Indicator
+(begin
+  (if test-failed
+      (display "Test Failed!")
+      (display "Tests Passed!"))
+  (newline))
