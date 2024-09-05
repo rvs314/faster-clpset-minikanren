@@ -367,7 +367,7 @@ Ex:
 ; Search
 
 ; For some type a ∌ #f, (Streamof b), (Pair b Procedure)
-; (Streamof a): #f | (SuspendedStreamof a) | a | (Pair a (SuspendedStreamof a))
+; (Streamof a): (U #f (SuspendedStreamof a) a (Pair a (SuspendedStreamof a)))
 ; (SuspendedStreamof a): (-> (Streamof a))
 ; SearchStream: (Streamof State)
 ; SuspendedStream: (SuspendedStreamof State)
