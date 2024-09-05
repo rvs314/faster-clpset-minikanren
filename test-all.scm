@@ -1,4 +1,14 @@
-(load "test-check.scm")
+;; Initial Loads
+(begin
+  ;; Chez-specific code to get better debug info.
+  (eval-when (eval load)
+    (optimize-level 0)
+    (debug-level 3))
+
+  (load "./test-check.scm")
+  (load "./sets.scm")
+  (load "./mk-vicare.scm")
+  (load "./mk.scm"))
 
 (printf "==-tests\n")
 (load "==-tests.scm")
