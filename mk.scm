@@ -190,6 +190,9 @@
 
 (define empty-state (state empty-subst empty-C))
 
+(define (state-with-S st S^)
+  (state S^ (state-C st)))
+
 (define (state-with-C st C^)
   (state (state-S st) C^))
 
@@ -237,7 +240,8 @@ Ex:
           (normalize-set walked s)))]
    [else set]))
 
-(define (unify-sets set set^ s)
+(define (unify-sets set set^ st)
+  (define s (state-S st))
   (define-values (head  tail)  (set-parts (normalize-set set  s)))
   (define-values (head^ tail^) (set-parts (normalize-set set^ s)))
 
@@ -254,51 +258,53 @@ Ex:
        #f
        (map-zipper
         (lambda (t^j-1..0 t^j t^j+1..n)
-          (let ([head^-t^j (append t^j-1..0 t^j+1..n)]
-                [N         (var (car s))]
-                [s         (subst-with-scope s (new-scope))])
+          (let* ([head^-t^j (append t^j-1..0 t^j+1..n)]
+                 [N         (var (car s))]
+                 [s         (subst-with-scope s (new-scope))]
+                 [st        (state-with-S st s)])
             (mplus*
              (unify* `([,t0          . ,t^j]
                        [,($ t1..m X) . ,($ head^-t^j X)])
-                     s)
+                     st)
              (unify* `([,t0          . ,t^j]
                        [,($ head X)  . ,($ head^-t^j X)])
-                     s)
-             (unify* `([,t0    . ,t^j]
+                     st)
+             (unify* `([,t0          . ,t^j]
                        [,($ t1..m X) . ,($ head^ X)])
-                     s)
+                     st)
              ;; TODO: this normally includes a set type-constraint on N
              ;; I'm leaving it out right now, but it needs to be added later
-             (unify* `([,tail^       . ,(set-cons t0 N)]
+             (unify* `([,tail^       . ,($ (list t0) N)]
                        [,($ t1..m N) . ,($ head^ N)])
-                     s))))
+                     st))))
         head^))))
 
   ;; When values don't share a tail, we have to enumerate all possible
   ;; set combinations
   ;; Rule 9 of Dovier et. al
   (define (set-enumeration)
-    (let ([t  (set-first set)]
-          [r  (set-rest  set)]
-          [t^ (set-first set^)]
-          [r^ (set-rest  set^)]
-          [N  (var (car s))]
-          [s  (subst-with-scope s (new-scope))])
+    (let* ([t  (set-first set)]
+           [r  (set-rest  set)]
+           [t^ (set-first set^)]
+           [r^ (set-rest  set^)]
+           [N  (var (car s))]
+           [s  (subst-with-scope s (new-scope))]
+           [st (state-with-S st s)])
       (mplus*
        (unify* `([,t . ,t^]
                  [,r . ,r^])
-               s)
+               st)
        (unify* `([,t   . ,t^]
                  [,set . ,r^])
-               s)
+               st)
        (unify* `([,t . ,t^]
                  [,r . ,set^])
-               s)
+               st)
        ;; TODO: this normally includes a set type-constraint on N
        ;; I'm leaving it out right now, but it needs to be added later
        (unify* `([,r  . ,(set-cons t^ N)]
                  [,r^ . ,(set-cons t N)])
-               s))))
+               st))))
 
   (if (eq? tail tail^)
       (set-induction)
@@ -306,29 +312,40 @@ Ex:
 
 ; Unification
 
-; UnificationResult: (Streamof (Pair Substitution (Listof Association)))
+; UnificationResult: (Streamof (Pair State (Listof Association)))
 ; A stream of extended substitutions and lists of associations added during the unification,
 ;  or the empty stream, indicating unification failed.
 ; This may have any number of elements, but should be finite.
 
 ; Term, Term, Substitution -> UnificationResult
-(define (unify u v s)
+
+(define (unify u v st)
+  (define s (state-S st))
+
+  (define (extend u v)
+    (map-inf
+     (lambda (S.added)
+       (cons
+        (state-with-S st (car S.added))
+        (cdr S.added)))
+     (ext-s-check u v s)))
+
   (let ((u (walk u s))
         (v (walk v s)))
     (cond
-      ((eq? u v) (cons s '()))
+      ((eq? u v) (cons st '()))
       ((and (var? u) (var? v))
        (if (> (var-idx u) (var-idx v))
-         (ext-s-check u v s)
-         (ext-s-check v u s)))
-      ((var? u) (ext-s-check u v s))
-      ((var? v) (ext-s-check v u s))
-      ((and (set-pair? u) (set-pair? v)) (unify-sets u v s))
+         (extend u v)
+         (extend v u)))
+      ((var? u) (extend u v))
+      ((var? v) (extend v u))
+      ((and (set-pair? u) (set-pair? v)) (unify-sets u v st))
       ((and (pair? u) (pair? v))
-       (let*-bind ([s.added-car (unify (car u) (car v) s)]
-                   [s.added-cdr (unify (cdr u) (cdr v) (car s.added-car))])
-         (cons (car s.added-cdr) (append (cdr s.added-car) (cdr s.added-cdr)))))
-      ((equal? u v) (cons s '()))
+       (let*-bind ([st.added-car (unify (car u) (car v) st)]
+                   [st.added-cdr (unify (cdr u) (cdr v) (car st.added-car))])
+         (cons (car st.added-cdr) (append (cdr st.added-car) (cdr st.added-cdr)))))
+      ((equal? u v) (cons st empty-state))
       (else #f))))
 
 ; Term, Substitution -> Term
@@ -354,15 +371,15 @@ Ex:
            (occurs-check x (cdr v) S)))
       (else #f))))
 
-; Var, Term, Substitution -> UnificationResult
+; Var, Term, Substitution -> (Streamof (Pair Substitution (Listof Association)))
 (define (ext-s-check x v S)
   (if (occurs-check x v S)
       #f
       (cons (subst-add S x v) (list (cons x v)))))
 
 ; Term, Term, Substitution -> UnificationResult
-(define (unify* S+ S)
-  (unify (map lhs S+) (map rhs S+) S))
+(define (unify* S+ st)
+  (unify (map lhs S+) (map rhs S+) st))
 
 ; Search
 
@@ -669,7 +686,11 @@ The scope of each RHS has access to prior binders, à la let*
 ; (Listof Association) -> Goal
 (define (=/=* S+)
   (lambda (st)
-    (let ((S.added-inf (unify* S+ (subst-with-scope (state-S st) nonlocal-scope))))
+    (let ((S.added-inf
+           (unify* S+
+                   (state-with-S
+                    st
+                    (subst-with-scope (state-S st) nonlocal-scope)))))
       (map-bind-inf
        (lambda (S.added)
          (let ([added (cdr S.added)])
@@ -926,17 +947,16 @@ The scope of each RHS has access to prior binders, à la let*
 ;; Maps the stream over a given procedure
 (define (map-inf proc strm)
   (case-inf strm
-    [()    #f]
+    [()    strm]
     [(f)   (suspend (map-inf proc (f)))]
     [(c)   (proc c)]
     [(c f) (cons (proc c) (suspend (map-inf proc (f))))]))
 
 (define (== u v)
   (lambda (st)
-    (let*-bind ([S^.added (unify u v (state-S st))])
-      (let* ([S^    (car S^.added)]
-             [added (cdr S^.added)]
-             [st^ (state S^ (state-C st))])
+    (let*-bind ([st^.added (unify u v st)])
+      (let* ([st^    (car st^.added)]
+             [added  (cdr st^.added)])
         (bind-foldl st^ (map update-constraints added))))))
 
 (define (replace from to list)
@@ -1064,7 +1084,7 @@ The scope of each RHS has access to prior binders, à la let*
                  type-constraints))
   (define D (append*
               (map (lambda (x)
-                     (filter-map (normalize-diseq (state-S st)) (c-D (lookup-c st x))))
+                     (filter-map (normalize-diseq st) (c-D (lookup-c st x))))
                    relevant-vars)))
   (define A (append*
               (map (lambda (x)
@@ -1096,16 +1116,16 @@ The scope of each RHS has access to prior binders, à la let*
                   relevant-vars)))
   (values T D A M E U))
 
-(define (normalize-diseq S)
+(define (normalize-diseq st)
   ;; FIXME:
   ;; The `error` calls here are from generalizing UnificationResult
   ;; I'm not 100% sure how this procedure should be generalized,
   ;; so I'm adding errors in the new cases.
   (lambda (S+)
-    (case-inf (unify* S+ S)
+    (case-inf (unify* S+ st)
       [()    #f]
       [(f)   (error 'normalize-diseq "Normalizing unification is suspended")]
-      [(c)   (walk* (cdr c) S)]
+      [(c)   (walk* (cdr c) (state-S st))]
       [(c f) (error 'normalize-diseq "Normalizing unification is divergent")])))
 
 ; Drop constraints that are satisfiable in any assignment of the reified
@@ -1220,14 +1240,17 @@ The scope of each RHS has access to prior binders, à la let*
 ;    than (not (and (== a 5) (== b 6)))
 (define (d-subsumed-by? d1 d2)
   ;; All the different ways d1 can possibly unify
-  (define unifications (map-inf car (unify* d1 (subst empty-subst-map nonlocal-scope))))
+  (define unifications (map-inf car (unify* d1
+                                            (state
+                                             (subst empty-subst-map nonlocal-scope)
+                                             empty-C))))
 
   (fold-inf
    (lambda (acc elem) (or acc elem))
    #f
-   (let*-bind ((S        unifications)
-               (S+.added (unify* d2 S)))
-     (null? (cdr S+.added)))))
+   (let*-bind ((st       unifications)
+               (st+.added (unify* d2 st)))
+     (null? (cdr st+.added)))))
 
 (define (reify-S v S)
   (let ((v (walk v S)))
