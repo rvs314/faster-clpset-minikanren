@@ -260,8 +260,7 @@ Ex:
         (lambda (t^j-1..0 t^j t^j+1..n)
           (let* ([head^-t^j (append t^j-1..0 t^j+1..n)]
                  [N         (var (car s))]
-                 [s         (subst-with-scope s (new-scope))]
-                 [st        (state-with-S st s)])
+                 [st        (state-with-scope st (new-scope))])
             (mplus*
              (unify* `([,t0          . ,t^j]
                        [,($ t1..m X) . ,($ head^-t^j X)])
@@ -288,8 +287,7 @@ Ex:
            [t^ (set-first set^)]
            [r^ (set-rest  set^)]
            [N  (var (car s))]
-           [s  (subst-with-scope s (new-scope))]
-           [st (state-with-S st s)])
+           [st (state-with-scope st (new-scope))])
       (mplus*
        (unify* `([,t . ,t^]
                  [,r . ,r^])
