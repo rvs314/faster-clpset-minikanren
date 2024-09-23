@@ -259,7 +259,6 @@ Ex:
        (map-zipper
         (lambda (t^j-1..0 t^j t^j+1..n)
           (let* ([head^-t^j (append t^j-1..0 t^j+1..n)]
-                 [N         (var (car s))]
                  [st        (state-with-scope st (new-scope))])
             (mplus*
              (unify* `([,t0          . ,t^j]
@@ -271,11 +270,11 @@ Ex:
              (unify* `([,t0          . ,t^j]
                        [,($ t1..m X) . ,($ head^ X)])
                      st)
-             ;; TODO: this normally includes a set type-constraint on N
-             ;; I'm leaving it out right now, but it needs to be added later
-             (unify* `([,tail^       . ,($ (list t0) N)]
-                       [,($ t1..m N) . ,($ head^ N)])
-                     st))))
+             (let* ([N         (var (car s))]
+                    [st        ((seto N) st)])
+               (unify* `([,tail^       . ,($ (list t0) N)]
+                         [,($ t1..m N) . ,($ head^ N)])
+                       st)))))
         head^))))
 
   ;; When values don't share a tail, we have to enumerate all possible
@@ -286,7 +285,6 @@ Ex:
            [r  (set-rest  set)]
            [t^ (set-first set^)]
            [r^ (set-rest  set^)]
-           [N  (var (car s))]
            [st (state-with-scope st (new-scope))])
       (mplus*
        (unify* `([,t . ,t^]
@@ -298,11 +296,11 @@ Ex:
        (unify* `([,t . ,t^]
                  [,r . ,set^])
                st)
-       ;; TODO: this normally includes a set type-constraint on N
-       ;; I'm leaving it out right now, but it needs to be added later
-       (unify* `([,r  . ,(set-cons t^ N)]
-                 [,r^ . ,(set-cons t N)])
-               st))))
+       (let* ([N   (var (subst-scope (state-S st)))]
+              [st^ ((seto N) st)])
+         (unify* `([,r  . ,(set-cons t^ N)]
+                   [,r^ . ,(set-cons t N)])
+                 st^)))))
 
   (if (eq? tail tail^)
       (set-induction)
@@ -950,9 +948,25 @@ The scope of each RHS has access to prior binders, à la let*
     [(c)   (proc c)]
     [(c f) (cons (proc c) (suspend (map-inf proc (f))))]))
 
+;; Term -> Listof Term
+;; This walks the subterms of a given term, and returns a list of
+;; subterms which must be sets.
+(define (infer-set-constraints term)
+  (cond
+   [(pair? term) (append (infer-set-constraints (car term))
+                         (infer-set-constraints (cdr term)))]
+   [(nonempty-set? term)
+    (let ([con-head (apply append
+                           (map infer-set-constraints (nonempty-set-head term)))]
+          [con-tail (infer-set-constraints (nonempty-set-tail term))])
+      (cons (nonempty-set-tail term) (append con-tail con-head)))]
+   [else         '()]))
+
 (define (== u v)
   (lambda (st)
-    (let*-bind ([st^.added (unify u v st)])
+    (let*-bind ([st (bind-foldl st (map seto (infer-set-constraints u)))]
+                [st (bind-foldl st (map seto (infer-set-constraints v)))]
+                [st^.added (unify u v st)])
       (let* ([st^    (car st^.added)]
              [added  (cdr st^.added)])
         (bind-foldl st^ (map update-constraints added))))))
