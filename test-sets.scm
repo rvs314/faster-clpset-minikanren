@@ -562,3 +562,24 @@
      ((,(set* _.0 _.1 _.2) ,(set* _.3 _.4) ,(set* _.0 _.1 _.2) ,(set* _.3 _.4)) (set _.2 _.4))
      ((,(set* _.0 _.1) ,(set* _.2 _.3 _.4) ,(set* _.0 _.1) ,(set* _.2 _.3 _.4)) (set _.1 _.4))
      ((,(set* _.0 _.1 _.2) ,(set* _.3 _.4 _.5) ,(set* _.0 _.1 _.2) ,(set* _.3 _.4 _.5)) (set _.2 _.5)))))
+
+;; Testing constraint inference
+(begin
+  (test "Constraint inference during unification"
+        (run* (q)
+          (== (set* 1 q) (set* 1 q)))
+        '((_.0 (set _.0))))
+  (test "Chat with Will"
+        (run* (q)
+          (== (set* 1 q) (set* 1 q))
+          (symbolo q))
+        '())
+  (test "Constraint inference during constraint claim"
+        (run* (q)
+          (seto (set* 1 q)))
+        '((_.0 (set _.0))))
+  (test "Constraint inference only occurs MK-side"
+        (run* (q)
+          (let ([_ (set* 1 q)])
+            succeed))
+        '(_.0)))
