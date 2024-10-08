@@ -874,7 +874,7 @@ The scope of each RHS has access to prior binders, à la let*
     (conde
      [(ino N l+r) (!ino N l) (!ino N r)]
      [(ino N r)   (!ino N l+r)]
-     [(ino N l)   (!ino N l+r)])))
+     [(!ino N r)  (ino N l) (!ino N l+r)])))
 
 (define (!disjo p q)
   (fresh (N)
