@@ -1,5 +1,3 @@
-(load "./sets.scm")
-
 (define always-wrap-reified? (make-parameter #f))
 
 ; Scope object.
@@ -240,6 +238,103 @@ Ex:
           (normalize-set walked s)))]
    [else set]))
 
+(define-syntax suspend (syntax-rules () ((_ body) (lambda () body))))
+
+; (mplus* e:(Streamof a) ...+) -> (Streamof a)
+(define-syntax mplus*
+  (syntax-rules ()
+    ((_ e) e)
+    ((_ e0 e ...)
+     (mplus e0 (suspend (mplus* e ...))))))
+
+; (bind* e:(Streamof a) g:(Expander a) ...) -> (Streamof a)
+(define-syntax bind*
+  (syntax-rules ()
+    ((_ e) e)
+    ((_ e g0 g ...) (bind* (bind e g0) g ...))))
+
+; UnificationResult: (Streamof (Pair State (Listof Association)))
+; A stream of extended substitutions and lists of associations added during the unification,
+;  or the empty stream, indicating unification failed.
+; This may have any number of elements, but should be finite.
+
+; Term, Term, Substitution -> UnificationResult
+
+#|
+A macro for writing code with multiple `bind` calls akin to `do` notation in haskell.
+Each LHS of the binders is bound to each of the values on the stream produced by the RHS.
+The scope of each RHS has access to prior binders, à la let*
+|#
+(define-syntax let*-bind
+  (syntax-rules ()
+    [(let*-bind ()
+       body body* ...)
+     (let ()
+       body body* ...)]
+    [(let*-bind ([first-name first-value] more-clauses ...)
+       body body* ...)
+     (bind
+      first-value
+      (lambda (first-name)
+        (let*-bind (more-clauses ...)
+          body body* ...)))]))
+
+; (fresh (x:id ...) g:Goal ...+) -> Goal
+(define-syntax fresh
+  (syntax-rules ()
+    ((_ (x ...) g0 g ...)
+     (lambda (st)
+       (suspend
+         (let ((scope (subst-scope (state-S st))))
+           (let ((x (var scope)) ...)
+             (bind* (g0 st) g ...))))))))
+
+; (conde [g:Goal ...] ...+) -> Goal
+(define-syntax conde
+  (syntax-rules ()
+    ((_ (g0 g ...) (g1 g^ ...) ...)
+     (lambda (st)
+       (suspend
+         (let ((st (state-with-scope st (new-scope))))
+           (mplus*
+             (bind* (g0 st) g ...)
+             (bind* (g1 st) g^ ...) ...)))))))
+
+(define-syntax toplevel-query
+  (syntax-rules ()
+    [(toplevel-query (q) g0 g ...)
+     (suspend
+       ((fresh (q) g0 g ...
+               (lambda (st)
+                 (let ((st (state-with-scope st nonlocal-scope)))
+                   (let ((z ((reify q) st)))
+                     (cons z (lambda () (lambda () #f)))))))
+        empty-state))]))
+
+(define-syntax run
+  (syntax-rules ()
+    ((_ n (q) g0 g ...)
+     (take n (toplevel-query (q) g0 g ...)))
+    ((_ n (q0 q1 q ...) g0 g ...)
+     (run n (x)
+       (fresh (q0 q1 q ...)
+         g0 g ...
+         (== (list q0 q1 q ...) x))))))
+
+(define-syntax run*
+  (syntax-rules ()
+    ((_ (q0 q ...) g0 g ...) (run #f (q0 q ...) g0 g ...))))
+
+
+(define-syntax defrel
+  (syntax-rules ()
+   ;; No suspend given single goal; search order for relations designed with define
+   ((_ (name arg ...) g)
+    (define (name arg ...) g))
+   ;; Use of fresh suspends when forming a conjunction to avoid nontermination
+   ((_ (name arg ...) g ...)
+    (define (name arg ...) (fresh () g ...)))))
+
 (define (unify-sets set set^ st)
   (define s (state-S st))
   (define-values (head  tail)  (set-parts (normalize-set set  s)))
@@ -308,12 +403,7 @@ Ex:
 
 ; Unification
 
-; UnificationResult: (Streamof (Pair State (Listof Association)))
-; A stream of extended substitutions and lists of associations added during the unification,
-;  or the empty stream, indicating unification failed.
-; This may have any number of elements, but should be finite.
 
-; Term, Term, Substitution -> UnificationResult
 
 (define (unify u v st)
   (define s (state-S st))
@@ -460,98 +550,9 @@ Ex:
 (define (stream . xs)
   (list->stream xs))
 
-#|
-A macro for writing code with multiple `bind` calls akin to `do` notation in haskell.
-Each LHS of the binders is bound to each of the values on the stream produced by the RHS.
-The scope of each RHS has access to prior binders, à la let*
-|#
-(define-syntax let*-bind
-  (syntax-rules ()
-    [(let*-bind ()
-       body body* ...)
-     (let ()
-       body body* ...)]
-    [(let*-bind ([first-name first-value] more-clauses ...)
-       body body* ...)
-     (bind
-      first-value
-      (lambda (first-name)
-        (let*-bind (more-clauses ...)
-          body body* ...)))]))
-
-; (bind* e:(Streamof a) g:(Expander a) ...) -> (Streamof a)
-(define-syntax bind*
-  (syntax-rules ()
-    ((_ e) e)
-    ((_ e g0 g ...) (bind* (bind e g0) g ...))))
-
 ; (suspend e:(Streamof a)) -> (SuspendedStreamof a)
 ; Used to clearly mark the locations where search is suspended in order to
 ; interleave with other branches.
-(define-syntax suspend (syntax-rules () ((_ body) (lambda () body))))
-
-; (mplus* e:(Streamof a) ...+) -> (Streamof a)
-(define-syntax mplus*
-  (syntax-rules ()
-    ((_ e) e)
-    ((_ e0 e ...)
-     (mplus e0 (suspend (mplus* e ...))))))
-
-; (fresh (x:id ...) g:Goal ...+) -> Goal
-(define-syntax fresh
-  (syntax-rules ()
-    ((_ (x ...) g0 g ...)
-     (lambda (st)
-       (suspend
-         (let ((scope (subst-scope (state-S st))))
-           (let ((x (var scope)) ...)
-             (bind* (g0 st) g ...))))))))
-
-; (conde [g:Goal ...] ...+) -> Goal
-(define-syntax conde
-  (syntax-rules ()
-    ((_ (g0 g ...) (g1 g^ ...) ...)
-     (lambda (st)
-       (suspend
-         (let ((st (state-with-scope st (new-scope))))
-           (mplus*
-             (bind* (g0 st) g ...)
-             (bind* (g1 st) g^ ...) ...)))))))
-
-(define-syntax toplevel-query
-  (syntax-rules ()
-    [(toplevel-query (q) g0 g ...)
-     (suspend
-       ((fresh (q) g0 g ...
-               (lambda (st)
-                 (let ((st (state-with-scope st nonlocal-scope)))
-                   (let ((z ((reify q) st)))
-                     (cons z (lambda () (lambda () #f)))))))
-        empty-state))]))
-
-(define-syntax run
-  (syntax-rules ()
-    ((_ n (q) g0 g ...)
-     (take n (toplevel-query (q) g0 g ...)))
-    ((_ n (q0 q1 q ...) g0 g ...)
-     (run n (x)
-       (fresh (q0 q1 q ...)
-         g0 g ...
-         (== (list q0 q1 q ...) x))))))
-
-(define-syntax run*
-  (syntax-rules ()
-    ((_ (q0 q ...) g0 g ...) (run #f (q0 q ...) g0 g ...))))
-
-
-(define-syntax defrel
-  (syntax-rules ()
-   ;; No suspend given single goal; search order for relations designed with define
-   ((_ (name arg ...) g)
-    (define (name arg ...) g))
-   ;; Use of fresh suspends when forming a conjunction to avoid nontermination
-   ((_ (name arg ...) g ...)
-    (define (name arg ...) (fresh () g ...)))))
 
 
 
@@ -704,6 +705,20 @@ The scope of each RHS has access to prior binders, à la let*
 ; Term, Term -> Goal
 (define (=/= u v)
   (=/=* (list (cons u v))))
+
+(define-syntax project
+  (syntax-rules ()
+    ((_ (x ...) g g* ...)
+     (lambda (st)
+       (let ((x (walk* x (state-S st))) ...)
+         ((fresh () g g* ...) st))))))
+
+(define-syntax project0
+  (syntax-rules ()
+    ((_ (x ...) g g* ...)
+     (lambda (st)
+       (let ((x (walk x (state-S st))) ...)
+         ((fresh () g g* ...) st))))))
 
 ;; Term, Term -> Goal
 ;; Holds when `i` is a member of `s`
@@ -1030,20 +1045,6 @@ The scope of each RHS has access to prior binders, à la let*
       ((pair? v)
        (cons (walk* (car v) S) (walk* (cdr v) S)))
       (else v))))
-
-(define-syntax project
-  (syntax-rules ()
-    ((_ (x ...) g g* ...)
-     (lambda (st)
-       (let ((x (walk* x (state-S st))) ...)
-         ((fresh () g g* ...) st))))))
-
-(define-syntax project0
-  (syntax-rules ()
-    ((_ (x ...) g g* ...)
-     (lambda (st)
-       (let ((x (walk x (state-S st))) ...)
-         ((fresh () g g* ...) st))))))
 
 (define succeed (lambda (x) x))
 (define fail (lambda _ #f))
