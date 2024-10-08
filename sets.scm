@@ -76,13 +76,20 @@
 (record-writer
  (record-type-descriptor nonempty-set)
  (lambda (obj prt wrt)
-   (let ([head (nonempty-set-head obj)]
-         [tail (nonempty-set-tail obj)])
-     (wrt
-      (if (set-null? tail)
-          `(set ,@head)
-          `(set* ,@head ,tail))
-      prt))))
+   (display "{" prt)
+   (let loop ([head (nonempty-set-head obj)]
+              [tail (nonempty-set-tail obj)])
+     (cond
+      [(and (pair? head) (null? (cdr head)))
+       (wrt (car head) prt)
+       (unless (set-null? tail)
+         (display " | " prt)
+         (wrt tail prt))
+       (display "}" prt)]
+      [else
+       (wrt (car head) prt)
+       (display " " prt)
+       (loop (cdr head) tail)]))))
 
 (define (set->list set)
   (cond
