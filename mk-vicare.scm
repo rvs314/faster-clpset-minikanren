@@ -98,24 +98,41 @@
       unbound)))
 (define (intmap-set m k v) (t:bind k v m))
 
-(define (intmap->list trie)
-  (let loop ([acc '()] [trie trie])
-    (cond
-     [(node-n? trie) (vector-foldl loop acc trie)]
-     [(data? trie)   (cons (cons (data-idx trie) (data-val trie))
-                           acc)]
-     [(null? trie)   '()]
-     [else           (error 'intmap->list "Invalid trie" trie)])))
+(define (intmap . key-value-pairs) (list->intmap key-value-pairs))
 
-; Misc. missing functions
+(define (list->intmap key-value-pairs)
+  (foldl (lambda (i a)
+           (intmap-set a (car i) (cdr i)))
+         empty-intmap
+         key-value-pairs))
 
-(define (remove-duplicates l)
-  (cond ((null? l)
-         '())
-        ((member (car l) (cdr l))
-         (remove-duplicates (cdr l)))
-        (else
-         (cons (car l) (remove-duplicates (cdr l))))))
+(define (intmap->list im)
+  (cond
+   [(null? im)   '()]
+   [(data? im)   (list (cons (data-idx im) (data-val im)))]
+   [(vector? im) (let loop ([i 0])
+                   (if (< i (vector-length im))
+                       (let* ([children (intmap->list (vector-ref im i))]
+                              [shifted  (map (lambda (k)
+                                               (cons (fxior (fxsll (car k) shift-size)
+                                                            i)
+                                                     (cdr k)))
+                                             children)])
+                         (append shifted (loop (add1 i))))
+                       '()))]))
+
+;; Misc. missing functions
+
+(define remove-duplicates
+  (case-lambda
+    [(l)   (remove-duplicates l equal?)]
+    [(l =) (let loop ([l l])
+             (if (null? l)
+                 '()
+                 (cons (car l)
+                       (loop
+                        (remp (lambda (o) (= o (car l)))
+                              (cdr l))))))]))
 
 (define (foldl f init seq)
   (if (null? seq)
