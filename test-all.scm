@@ -10,6 +10,9 @@
   (load "./mk-vicare.scm")
   (load "./mk.scm"))
 
+(printf "vicare-tests\n")
+(load "./test-vicare.scm")
+
 (printf "==-tests\n")
 (load "==-tests.scm")
 
