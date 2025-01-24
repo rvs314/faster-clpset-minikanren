@@ -13,6 +13,9 @@
 (printf "vicare-tests\n")
 (load "./test-vicare.scm")
 
+(printf "test-basics")
+(load "./test-basics.scm")
+
 (printf "==-tests\n")
 (load "==-tests.scm")
 
