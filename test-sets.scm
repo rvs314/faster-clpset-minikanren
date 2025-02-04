@@ -583,3 +583,72 @@
           (let ([_ (set* 1 q)])
             succeed))
         '(_.0)))
+
+
+;; Jason & Will's Test
+
+(let ()
+  (define (sets-and-tags tagged-sets tags)
+    (conde
+     [succeed]
+     [(fresh (tagged-sets^ tag tags^ s __)
+        (removeo tags tag tags^)
+        (removeo tagged-sets (cons tag s) tagged-sets^)
+        (uniono s __ tags)
+        (sets-and-tags tagged-sets tags^))]))
+  (test "Sets-and-tags"
+        (run 5 (tagged-sets/no-tags tags)
+          (sets-and-tags tagged-sets/no-tags tags))
+        '()))
+
+;; Unrolled version of the above test, fails in 1 w/ same error
+#;
+(define (sets-and-tags tagged-sets tags)
+  (fresh (tagged-sets^1 tag1 tags^1 s1 __1)
+    (removeo tags1 tag1 tags^1)
+    (removeo tagged-sets1 (cons tag1 s) tagged-sets^)
+    (uniono s __ tags)
+    (let ([tags tags^])
+      (fresh (tagged-sets^ tag tags^ s __)
+        (removeo tags tag tags^)
+        (removeo tagged-sets (cons tag s) tagged-sets^)
+        (uniono s __ tags)
+        (let ([tags tags^])
+          (fresh (tagged-sets^ tag tags^ s __)
+            (removeo tags tag tags^)
+            (removeo tagged-sets (cons tag s) tagged-sets^)
+            (uniono s __ tags)
+            (let ([tags tags^])
+              (fresh (tagged-sets^ tag tags^ s __)
+                (removeo tags tag tags^)
+                (removeo tagged-sets (cons tag s) tagged-sets^)
+                (uniono s __ tags)
+                (let ([tags tags^])
+                  (fresh (tagged-sets^ tag tags^ s __)
+                    (removeo tags tag tags^)
+                    (removeo tagged-sets (cons tag s) tagged-sets^)
+                    (uniono s __ tags)))))))))))
+
+;; Flattened version of the above
+#;
+(define (sets-and-tags tagged-sets tags)
+  (fresh (tagged-sets^* tag* tags^* s* __*
+                        tagged-sets^** tag** tags^** s** __**
+                        tagged-sets^*** tag*** tags^*** s*** __***
+                        tagged-sets^**** tag**** tags^**** s**** __****
+                        tagged-sets^***** tag***** tags^***** s***** __*****)
+    (removeo tags tag* tags^*)
+    (removeo tagged-sets (cons tag* s*) tagged-sets^*)
+    (uniono s* __* tags)
+    (removeo tags^* tag** tags^**)
+    (removeo tagged-sets (cons tag** s**) tagged-sets^**)
+    (uniono s** __** tags^*)
+    (removeo tags^** tag*** tags^***)
+    (removeo tagged-sets (cons tag*** s***) tagged-sets^***)
+    (uniono s*** __*** tags^**)
+    (removeo tags^*** tag**** tags^****)
+    (removeo tagged-sets (cons tag**** s****) tagged-sets^****)
+    (uniono s**** __**** tags^***)
+    (removeo tags^**** tag***** tags^*****)
+    (removeo tagged-sets (cons tag***** s*****) tagged-sets^*****)
+    (uniono s***** __***** tags^****)))
