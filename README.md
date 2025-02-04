@@ -1,72 +1,24 @@
-# faster-miniKanren
+# faster-clpset-miniKanren
 
-A revision of https://github.com/webyrd/miniKanren-with-symbolic-constraints/ for better performance. Up to 10x faster for large queries involving heavy use of constraints.
-
-Includes `==`, `=/=`, `symbolo`, `numbero`, and `absento`.
-
-*** Update (WEB, 21 August 02018): `absento` is now general--the first argument can be any legal miniKanren term, and needn't be ground.  Previously, `faster-miniKanren` required the first argument to `absento` be an `eqv?`-comparable ground atom.  Thanks to Michael Ballantyne for pointing out how to remove this restriction.
-
-Eigen was removed.
+A modification of https://github.com/michaelballantyne/faster-minikanren with constraints for solving set queries.
 
 ## Running
 
 ### Racket
 
-#### From the Package Server
-
-This is available on the [Racket package server](https://pkgn.racket-lang.org/package/faster-minikanren), so it can be installed with Racket's package manager:
-
-```
-raco pkg install faster-minikanren
-```
-
-After which you can import it in a Racket module with
-
-```
-(require minikanren)
-```
-
-#### From a checkout of this repository
-
-Alternatively the files from this repository can be used directly:
-
-```
-(require "mk.rkt")
-```
-
-to load tests:
-
-```
-racket test-all.rktl
-```
+Currently, racket is not supported for this variant of miniKanren, though support is possible in theory. The original faster-minikanren is written in the intersection of both racket and chez scheme, which does not happen to include disjoint record types with custom equality predicates (both languages have them, but use different syntax). The racket source files currently in the project are vestigial, with the hope that racket support can be re-added.
 
 ### Vicare and Chez Scheme
 
 ```
-(load "mk-vicare.scm")
-(load "mk.scm")
+(load "all.scm")
 ```
 
 To run tests:
 
 ```
-(load "mk-vicare.scm")
-(load "mk.scm")
+(load "all.scm")
 (load "test-all.scm")
-```
-
-### Guile
-
-After putting the directory in Guile's load path:
-
-```
-(use-modules (faster-miniKanren mk-guile))
-```
-
-To run tests:
-
-```
-guile test-guile.scm
 ```
 
 ## Other code
@@ -80,7 +32,6 @@ guile test-guile.scm
 `matche.scm` includes a pattern matching syntax that expands to unification.
 
 Each of these files is also wrapped in a corresponding `.rkt` file as a Racket module.
-
 
 ## What makes it fast?
 
@@ -184,3 +135,7 @@ Information about absento constraints is attached to each uninstantiated variabl
 * propagate the constraint to component parts if the new value is a pair
 
 Again, the constraint is only examined when a variable that it concerns is instantiated.
+
+## Sets and Set Constraints
+
+For information on sets and set constraints, see `set-docs.org`.
