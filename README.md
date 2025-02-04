@@ -2,6 +2,10 @@
 
 A modification of https://github.com/michaelballantyne/faster-minikanren with constraints for solving set queries.
 
+> [!Warning]
+> This is a branch intended to fix [this issue](https://github.com/rvs314/faster-clpset-minikanren/issues/5), which is currently poorly understood.
+> If your code does something you don't understand, please report it - it very well may be a bug!
+
 ## Running
 
 ### Racket
