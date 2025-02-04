@@ -1129,16 +1129,13 @@ The scope of each RHS has access to prior binders, à la let*
   (values T D A M E U))
 
 (define (normalize-diseq st)
-  ;; FIXME:
-  ;; The `error` calls here are from generalizing UnificationResult
-  ;; I'm not 100% sure how this procedure should be generalized,
-  ;; so I'm adding errors in the new cases.
   (lambda (S+)
-    (case-inf (unify* S+ st)
-      [()    #f]
-      [(f)   (error 'normalize-diseq "Normalizing unification is suspended")]
-      [(c)   (walk* (cdr c) (state-S st))]
-      [(c f) (error 'normalize-diseq "Normalizing unification is divergent")])))
+    ;; This is guaranteed to terminate, as unify's stream is always finite
+    (define cases (take #f (unify* S+ st)))
+    (cond
+     [(null? cases)       #f]
+     [(null? (cdr cases)) (walk* (cdar cases) (state-S st))]
+     [else                (walk* (map cdr cases) (state-S st))])))
 
 ; Drop constraints that are satisfiable in any assignment of the reified
 ; variables, because they refer to unassigned variables that are not part of
