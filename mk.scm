@@ -463,13 +463,13 @@ The scope of each RHS has access to prior binders, à la let*
       #f
       (cons (subst-add S x v) (list (cons x v)))))
 
-; Term, Term, Substitution -> UnificationResult
+; (Listof Association), Substitution -> UnificationResult
 (define (unify* S+ st)
   (unify (map lhs S+) (map rhs S+) st))
 
 ; Search
 
-; For some type a ∌ #f, (Streamof b), (Pair b Procedure)
+; For some type a ∌ #f, Procedure, (Pair b Procedure)
 ; (Streamof a): (U #f (SuspendedStreamof a) a (Pair a (SuspendedStreamof a)))
 ; (SuspendedStreamof a): (-> (Streamof a))
 ; SearchStream: (Streamof State)
@@ -477,8 +477,7 @@ The scope of each RHS has access to prior binders, à la let*
 ; (Expansion a): (a -> (Streamof a))
 ; Goal: (Expansion State)
 
-; Match on search streams. The State type must not be a pair with a procedure
-; in its cdr, lest a single result be interpreted as multiple results.
+; Match on search streams. 
 ;
 ; (() e0)     failure
 ; ((f) e1)    suspension for interleaving. separate from success or failure to ensure
@@ -920,7 +919,7 @@ The scope of each RHS has access to prior binders, à la let*
       (bind (goal1 st) goal2)))
   (foldl then2 succeed goals))
 
-;; a, (Listof Goal) -> SearchStream
+;; a, (Listof (Expander a)) -> (Streamof a)
 ;; Applies a list of goals to an initial state
 ;; `(bind-foldl state (list goal ...))` is equivalent to `(bind* state goal ...)`,
 ;; but is a procedure, rather than syntax
