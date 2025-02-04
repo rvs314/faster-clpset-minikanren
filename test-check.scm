@@ -52,3 +52,10 @@
              (if next
                  (loop rest (remove next expected-results) (add1 i))
                  (failf "~s Failed: Did not find answers: ~s~%" expected-results)))]))))))
+
+;; Flips a coin with a 1/K chance of giving heads,
+;; where K = 2 by default
+(define flip
+  (case-lambda
+    [()  (flip 2)]
+    [(k) (zero? (random k))]))
