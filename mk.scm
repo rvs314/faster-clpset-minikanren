@@ -1135,7 +1135,7 @@ The scope of each RHS has access to prior binders, à la let*
     (cond
      [(null? cases)       #f]
      [(null? (cdr cases)) (walk* (cdar cases) (state-S st))]
-     [else                (walk* (map cdr cases) (state-S st))])))
+     [else                (walk* S+ st)])))
 
 ; Drop constraints that are satisfiable in any assignment of the reified
 ; variables, because they refer to unassigned variables that are not part of
