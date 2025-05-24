@@ -286,8 +286,11 @@ The scope of each RHS has access to prior binders, à la let*
      (lambda (st)
        (suspend
          (let ((scope (subst-scope (state-S st))))
-           (let ((x (var scope)) ...)
-             (bind* (g0 st) g ...))))))))
+           ;; Use let* to force left-to-right variable allocation order
+           (let* ((x (var scope)) ...)
+             ;; Use let to get a duplicate binding error.
+             (let ((x x) ...)
+               (bind* (g0 st) g ...)))))))))
 
 ; (conde [g:Goal ...] ...+) -> Goal
 (define-syntax conde
