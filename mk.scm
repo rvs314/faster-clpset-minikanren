@@ -547,7 +547,8 @@ The scope of each RHS has access to prior binders, à la let*
   (cond
    [(null? lst) #f]
    [(pair? lst) (let ([rest (list->stream (cdr lst))])
-                  (cons (car lst) (suspend rest)))]))
+                  (cons (car lst) (suspend rest)))]
+   [eler (error 'list->stream "Cannot convert non-list to stream" lst)]))
 
 (define (stream . xs)
   (list->stream xs))
@@ -640,7 +641,8 @@ The scope of each RHS has access to prior binders, à la let*
     (let ((r (lex-compare (set-first x) (set-first y))))
       (if (eq? r '=)
           (lex-compare (set-rest x) (set-rest y))
-          r))]))
+          r))]
+   [(error 'set-compare "cannot compare non-sets" x y)]))
 
 (define (valid-seto x)
   (if (null-set? x)
@@ -810,7 +812,8 @@ The scope of each RHS has access to prior binders, à la let*
      [(set-null? set) succeed]
      [(set-pair? set) (fresh ()
                        (absento term1 (set-first set))
-                       (set-absento (set-rest set)))]))
+                       (set-absento (set-rest set)))]
+     [else (error 'set-absento "Cannot find absence of non-set" set)]))
   (lambda (st)
     (let ((term1 (walk term1 (state-S st)))
           (term2 (walk term2 (state-S st))))
