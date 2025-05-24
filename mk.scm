@@ -580,11 +580,11 @@ The scope of each RHS has access to prior binders, à la let*
 ; Ordering: T, T -> CompareResult where T is defined by the corresponding predicate.
 ; Propagator: T -> SimpleConstraint
 
-; Predicate Symbol CompareResult (or/c #f Propagator) -> TypeConstraint
+; Predicate Symbol CompareResult (or #f Propagator) -> TypeConstraint
 (define type-constraint
   (case-lambda
     [(predicate reified ordering)
-     (list predicate reified ordering atomic-propagator)]
+     (type-constraint predicate reified ordering #f)]
     [(predicate reified ordering propagator)
      (list predicate reified ordering propagator)]))
 
@@ -602,7 +602,8 @@ The scope of each RHS has access to prior binders, à la let*
   (lambda (u)
     (lambda (st)
       (let ((type-pred (type-constraint-predicate tc))
-            (type-prop (type-constraint-propagator tc)))
+            (type-prop (or (type-constraint-propagator tc)
+                           atomic-propagator)))
         (let ((term (walk u (state-S st))))
           (cond
             ;; ((type-pred term) st)
@@ -1174,12 +1175,17 @@ The scope of each RHS has access to prior binders, à la let*
                          A)))
   (values D^ A^))
 
+;; Holds for type-constraint TYP iff the constraint is either
+;; unbound or a compound type constraint (one with a non-atomic propagator)
+(define (compound-type-constraint? typ)
+  (or (unbound? typ)
+      (type-constraint-propagator typ)))
+
 ; Drop absento constraints where the RHS is known to be atomic, such that
 ; the disequality attached by absento solving is sufficient.
 (define (absento-rhs-atomic? a st)
-  ; absento on pairs is pushed down and type constraints are atomic,
-  ; so the only kind of non-atomic RHS is an untyped var.
-  (not (and (var? (rhs a)) (unbound? (var-type (rhs a) st)))))
+  (not (and (var? (rhs a))
+            (compound-type-constraint? (var-type (rhs a) st)))))
 
 ; Drop absento constraints that are trivially satisfied because
 ; any violation would cause a failure of the occurs check.
@@ -1364,7 +1370,7 @@ The scope of each RHS has access to prior binders, à la let*
 ; (Listof (Pair Predicate Ordering))
 (define type-orderings
   (append
-    ; atomic types
+    ; compound and atomic types
     (map (lambda (tc) (cons (type-constraint-predicate tc)
                             (type-constraint-ordering tc)))
          type-constraints)
@@ -1377,14 +1383,7 @@ The scope of each RHS has access to prior binders, à la let*
                    (let ((r (lex-compare (car x) (car y))))
                      (if (eq? r '=)
                        (lex-compare (cdr x) (cdr y))
-                       r))))
-      ; sets
-      (,set-null? . ,(lambda (x y) '=))
-      (,set-pair?  . ,(lambda (x y)
-                        (let ((r (lex-compare (set-first x) (set-first y))))
-                          (if (eq? r '=)
-                              (lex-compare (set-rest x) (set-rest y))
-                              r)))))))
+                       r)))))))
 
 (define (index+element-where l pred)
   (let loop ((l l)
@@ -1401,7 +1400,7 @@ The scope of each RHS has access to prior binders, à la let*
       (error 'type-index "missing ordering for type of value ~s" v))))
 
 ; (Term, Term) -> (or CompareResult error)
-; defined when arguments are pairs, null, or atomic types addressed by type-constraints;
+; defined when arguments are pairs, null, or types addressed by type-constraints;
 ; see type-orderings.
 (define (lex-compare x y)
   (let-values (((x-o-idx x-o) (type-ordering x))

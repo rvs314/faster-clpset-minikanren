@@ -632,10 +632,24 @@
   (run* (s1 s2)
     (absento 'clos (list s1 s2))
     (== (set-cons 42 s1) (set-cons 42 s2)))
-  `(((_.0 _.0) (set _.0))
-    ((_.0 ,(set* 42 _.0)) (set _.0))
-    ((,(set* 42 _.0) _.0) (set _.0))
-    ((,(set* 42 _.0) ,(set* 42 _.0)) (set _.0))))
+  `(((_.0 _.0) (set _.0) (absento (clos _.0)))
+    ((_.0 ,(set* 42 _.0)) (set _.0) (absento (clos _.0)))
+    ((,(set* 42 _.0) _.0) (set _.0) (absento (clos _.0)))
+    ((,(set* 42 _.0) ,(set* 42 _.0)) (set _.0) (absento (clos _.0)))))
+
+;; Reficiation of [non-]atomic propagators
+
+(begin
+  (test "atomic propagator reification with absento"
+        (run* (p)
+          (symbolo p)
+          (absento 3 p))
+        '((_.0 (sym _.0))))
+  (test "non-atomic propagator reification with absento"
+        (run* (p)
+          (seto p)
+          (absento 3 p))
+        '((_.0 (set _.0) (absento (3 _.0))))))
 
 #|
 ((_.0 _.1)
