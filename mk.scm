@@ -803,35 +803,36 @@ The scope of each RHS has access to prior binders, à la let*
           (add-to-E st p q))]
        [else fail]))))
 
+(defrel (absento term1 term2)
+  (=/= term1 term2)
+  (sub-absento term1 term2))
+
 ; Term, Term -> Goal
 ; Generalized 'absento': 'term1' can be any legal term (old version
 ; of faster-miniKanren required 'term1' to be a ground atom).
-(define (absento term1 term2)
-  (define (set-absento set)
-    (cond
-     [(set-null? set) succeed]
-     [(set-pair? set) (fresh ()
-                       (absento term1 (set-first set))
-                       (set-absento (set-rest set)))]
-     [else (error 'set-absento "Cannot find absence of non-set" set)]))
-  (lambda (st)
-    (let ((term1 (walk term1 (state-S st)))
-          (term2 (walk term2 (state-S st))))
-      (let*-bind ([st^ ((=/= term1 term2) st)])
-        (cond
-         ((pair? term2)
-          (let*-bind ([st^^ ((absento term1 (car term2)) st^)])
-            ((absento term1 (cdr term2)) st^^)))
-         ((set? term2)
-          ((set-absento term2) st))
-         ((var? term2)
-          (let*-bind ([c (lookup-c st^ term2)])
-            (let* ((A (c-A c)))
-              (if (memv term1 A)
-                st^
-                (let ((c^ (c-with-A c (cons term1 A))))
-                  (set-c st^ term2 c^))))))
-         (else st^))))))
+(define (sub-absento term1 term2)
+  (lambda (st^)
+    (let ((term1 (walk term1 (state-S st^)))
+          (term2 (walk term2 (state-S st^))))
+      (cond
+       ((pair? term2)
+        (let*-bind ([st^^ ((absento term1 (car term2)) st^)])
+          ((absento term1 (cdr term2)) st^^)))
+       ((set-null? term2)
+        (succeed st^))
+       ((set-pair? term2)
+        ((fresh ()
+           (absento term1 (set-first term2))
+           (sub-absento term1 (set-rest term2)))
+         st^))
+       ((var? term2)
+        (let*-bind ([c (lookup-c st^ term2)])
+          (let* ((A (c-A c)))
+            (if (memv term1 A)
+              st^
+              (let ((c^ (c-with-A c (cons term1 A))))
+                (set-c st^ term2 c^))))))
+       (else st^)))))
 
 (defrel (removeo set elem set-elem)
   (== set (set-cons elem set-elem))
@@ -1013,7 +1014,7 @@ The scope of each RHS has access to prior binders, à la let*
                         (if (c-T old-c)
                             (list ((apply-type-constraint (c-T old-c)) (rhs a)))
                             '())
-                        (map (lambda (atom) (absento atom (rhs a))) (c-A old-c))
+                        (map (lambda (atom) (sub-absento atom (rhs a))) (c-A old-c))
                         (map =/=* (c-D old-c))
                         (map (lambda (mem) (!ino mem (rhs a))) (c-M old-c))
                         (map (lambda (vr)
