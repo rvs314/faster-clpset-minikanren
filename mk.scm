@@ -455,9 +455,10 @@ The scope of each RHS has access to prior binders, à la let*
   (let ((v (walk v S)))
     (cond
       ((var? v) (var-eq? v x))
-      ((set-pair? v)
-       (or (occurs-check x (set-first v) S)
-           (occurs-check x (set-rest v) S)))
+      ((nonempty-set? v)
+       (or (ormap (lambda (el) (occurs-check x el S))
+                  (nonempty-set-head v))
+           (occurs-check x (nonempty-set-tail v) S)))
       ((pair? v)
        (or (occurs-check x (car v) S)
            (occurs-check x (cdr v) S)))
@@ -807,13 +808,15 @@ The scope of each RHS has access to prior binders, à la let*
           (add-to-E st p q))]
        [else fail]))))
 
+;; Term, Term -> Goal
+;; Generalized 'absento': 'term1' can be any legal term (old version
+;; of faster-miniKanren required 'term1' to be a ground atom).
 (defrel (absento term1 term2)
   (=/= term1 term2)
   (sub-absento term1 term2))
 
-; Term, Term -> Goal
-; Generalized 'absento': 'term1' can be any legal term (old version
-; of faster-miniKanren required 'term1' to be a ground atom).
+;; Term, Term -> Goal
+;; Asserts that `term1` cannot occur in any subterm of `term2`
 (define (sub-absento term1 term2)
   (lambda (st^)
     (let ((term1 (walk term1 (state-S st^)))
@@ -1164,21 +1167,84 @@ The scope of each RHS has access to prior binders, à la let*
           (filter all-relevant? E)
           (filter all-relevant? U)))
 
-
+;; Given two lists and an optional equality procedure between their elements,
+;; returns three values:
+;; - All the elements of the first which are not equal to any in the second
+;; - All the elements of the first which are equal to any in the second
+;; - All the elements of the second which are not equal to any in the first
+;; If the equality procedure isn't provided, it's assumed to be `equal?`
+;; Whether or not the lists have duplicates or are ordered is undefined
+(define list-differences
+  (case-lambda
+    [(fst snd) (list-differences fst snd equal?)]
+    [(fst snd =)
+     (if (null? snd)
+         (values fst '() snd)
+         (apply values
+                (fold-left
+                 (lambda (acc el)
+                   (if (memp (lambda (p) (= el p)) snd)
+                       (list (car acc)
+                             (cons el (cadr acc))
+                             (filter (lambda (p) (not (= el p)))
+                                     (caddr acc)))
+                       (list (cons el (car acc))
+                             (cadr acc)
+                             (caddr acc))))
+                 (list '() '() snd)
+                 fst)))]))
 
 (define (drop-subsumed D B st)
-  (define D^ (rem-subsumed
-                 d-subsumed-by?
-                 (filter (lambda (d)
-                           (not (d-subsumed-by-T? d st)))
-                         D)))
+  (define (b=d? V.K L_K.V)
+    (and (eqv? (length L_K.V) 1)
+         (or (and (var-eq? (caar L_K.V) (cdr V.K))
+                  (equal? (car V.K) (cdar L_K.V)))
+             (and (var? (cdar L_K.V))
+                  (var-eq? (cdar L_K.V) (cdr V.K))
+                  (var-eq? (caar L_K.V) (car V.K))))))
+
   (define B^ (rem-subsumed
                  b-subsumed-by?
                  (filter (lambda (b)
                            (not (or (sub-absento-rhs-atomic? b st)
                                     (sub-absento-rhs-occurs-lhs? b st))))
                          B)))
-  (values D^ B^ '()))
+
+  ;; To keep backwards compatability with the existing reification visualization,
+  ;; we rewrite sub-absento constraints into absento,
+  ;; even if it means providing redundant information.
+  ;; 
+  ;; For example:
+  ;; ```
+  ;; > (run* (p) (symbolo q) (absento 1 q))
+  ;; ((_.0 (set _.0) (absento (1 _.0))))
+  ;; ```
+  ;; 
+  ;; In this case, we implicitly provide the redundant information that
+  ;; `(=/= 1 q)`, which is obvious from the disjointness of types.
+  ;; If we had only the `(=/= 1 q)` constraint, then we'd remove it
+  ;; as being subsumed by the type constraint, but we use it when deciding
+  ;; whether to use `absento` or `sub-absento` constraints.
+  ;; 
+  ;; To do that, we recover the list of implicit disequalities
+  ;; which are subsumed by the disjointness of types in absento
+  (define Dv
+    (filter-map
+      (lambda (b)
+        (let ((d (absento->diseq b)))
+          (and (d-subsumed-by-T? d st) d)))
+      B))
+
+  (define-values (B^^ A^ D^) (list-differences B^ (append D Dv) b=d?))
+
+  (define D^^ (rem-subsumed
+                  d-subsumed-by?
+                  (filter (lambda (d)
+                            (not (or (d-subsumed-by-T? d st)
+                                     (d-subsumed-by-B? d B st))))
+                          D^)))
+
+  (values D^^ B^^ A^))
 
 ;; Holds for type-constraint TYP iff the constraint is either
 ;; unbound or a compound type constraint (one with a non-atomic propagator)
@@ -1200,23 +1266,36 @@ The scope of each RHS has access to prior binders, à la let*
 (define (sub-absento-rhs-occurs-lhs? b st)
   (occurs-check (rhs b) (lhs b) (state-S st)))
 
+;; Drop disequalities that are subsumed by an absento contraint
+;; that is not itself equivalent to just a disequality.
+(define (d-subsumed-by-B? d A st)
+  (exists (lambda (a)
+            (and (not (sub-absento-rhs-atomic? a st))
+                 (d-subsumed-by? d (list a))))
+          A))
+
 ; Drop disequalities that are fully satisfied because the types are disjoint
 ; either due to type constraints or ground values.
 ; Examples:
 ;  * given (symbolo x) and (numbero y), (=/= x y) is dropped.
 (define (d-subsumed-by-T? d st)
-  (exists (lambda (pr) (not (var-types-match? (lhs pr) (rhs pr) st)))
+  (exists (lambda (pr)
+            (not
+             (or (and (var? (lhs pr)) (var-types-match? (lhs pr) (rhs pr) st))
+                 (and (var? (rhs pr)) (var-types-match? (rhs pr) (lhs pr) st)))))
           d))
 
 (define (var-types-match? t1 t2 st)
   (or (unbound? (var-type t1 st))
       (if (var? t2)
-        (or (unbound? (var-type t2 st))
-            (eq? (var-type t1 st) (var-type t2 st)))
-        ((type-constraint-predicate (var-type t1 st))
-         t2))))
+          (or (unbound? (var-type t2 st))
+              (eq? (var-type t1 st) (var-type t2 st)))
+          ((type-constraint-predicate (var-type t1 st))
+           t2))))
 
 (define (var-type x st) (or (c-T (lookup-c st x)) unbound))
+
+(define (absento->diseq t) (list t))
 
 (define (rem-subsumed subsumed-by? el*)
   (define (subsumed-by-one-of? el el*)
@@ -1314,7 +1393,7 @@ The scope of each RHS has access to prior binders, à la let*
           (fa (if (null? fa)
                   fa
                   (let ((fa (drop-dot fa)))
-                    `((absento . ,fs)))))
+                    `((absento . ,fa)))))
           (fm (if (null? fm)
                   fm
                   `((∉ . ,(drop-dot fm)))))

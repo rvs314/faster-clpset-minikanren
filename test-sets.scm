@@ -584,7 +584,6 @@
             succeed))
         '(_.0)))
 
-
 ;; Jason & Will's Test
 (let ()
   (define (sets-and-tags tagged-sets tags)
@@ -651,65 +650,14 @@
           (absento 3 p))
         '((_.0 (set _.0) (absento (3 _.0))))))
 
-#|
-((_.0 _.1)
- (({(_.0 . {_.0 | _.1}) | _.2} {_.0 | _.3}) (set _.1 _.2 _.3) (∉ (_.0 _.1) (_.0 _.3) ((_.0 . {_.0 | _.1}) _.2)))
- (({(_.0 . _.1) | _.2} {_.0 | _.3}) (set _.1 _.2 _.3) (∉ (_.0 _.3) ((_.0 . _.1) _.2)))
- (({(_.0 . {_.0 | _.1}) | _.2} {_.0 | _.3}) (set _.1 _.2 _.3) (∉ (_.0 _.1) (_.0 _.3) ((_.0 . {_.0 | _.1}) _.2)))
- (({(_.0 . {_.0 | _.1}) (_.2 . {_.2 | _.3}) | _.4} {_.0 _.2 | _.5})
-   (=/= ((_.0 _.2)))
-   (set _.1 _.3 _.4 _.5)
-   (∉ (_.0 _.1) (_.0 _.5) (_.2 _.3) (_.2 _.5) ((_.0 . {_.0 | _.1}) _.4) ((_.2 . {_.2 | _.3}) _.4))))
-|#
+;; Use of sub-absento in the case of partially instantiated sets
 
-;; Unrolled version of the above test, fails in 1 w/ same error
-#;
-(define (sets-and-tags tagged-sets tags)
-  (fresh (tagged-sets^1 tag1 tags^1 s1 __1)
-    (removeo tags1 tag1 tags^1)
-    (removeo tagged-sets1 (cons tag1 s) tagged-sets^)
-    (uniono s __ tags)
-    (let ([tags tags^])
-      (fresh (tagged-sets^ tag tags^ s __)
-        (removeo tags tag tags^)
-        (removeo tagged-sets (cons tag s) tagged-sets^)
-        (uniono s __ tags)
-        (let ([tags tags^])
-          (fresh (tagged-sets^ tag tags^ s __)
-            (removeo tags tag tags^)
-            (removeo tagged-sets (cons tag s) tagged-sets^)
-            (uniono s __ tags)
-            (let ([tags tags^])
-              (fresh (tagged-sets^ tag tags^ s __)
-                (removeo tags tag tags^)
-                (removeo tagged-sets (cons tag s) tagged-sets^)
-                (uniono s __ tags)
-                (let ([tags tags^])
-                  (fresh (tagged-sets^ tag tags^ s __)
-                    (removeo tags tag tags^)
-                    (removeo tagged-sets (cons tag s) tagged-sets^)
-                    (uniono s __ tags)))))))))))
-
-;; Flattened version of the above
-#;
-(define (sets-and-tags tagged-sets tags)
-  (fresh (tagged-sets^* tag* tags^* s* __*
-                        tagged-sets^** tag** tags^** s** __**
-                        tagged-sets^*** tag*** tags^*** s*** __***
-                        tagged-sets^**** tag**** tags^**** s**** __****
-                        tagged-sets^***** tag***** tags^***** s***** __*****)
-    (removeo tags tag* tags^*)
-    (removeo tagged-sets (cons tag* s*) tagged-sets^*)
-    (uniono s* __* tags)
-    (removeo tags^* tag** tags^**)
-    (removeo tagged-sets (cons tag** s**) tagged-sets^**)
-    (uniono s** __** tags^*)
-    (removeo tags^** tag*** tags^***)
-    (removeo tagged-sets (cons tag*** s***) tagged-sets^***)
-    (uniono s*** __*** tags^**)
-    (removeo tags^*** tag**** tags^****)
-    (removeo tagged-sets (cons tag**** s****) tagged-sets^****)
-    (uniono s**** __**** tags^***)
-    (removeo tags^**** tag***** tags^*****)
-    (removeo tagged-sets (cons tag***** s*****) tagged-sets^*****)
-    (uniono s***** __***** tags^****)))
+(begin
+  (test "descending into set-cons"
+        (run* (p)
+          (absento 2 (set* 0 1 p)))
+        '((_.0 (sub-absento (2 _.0)))))
+  (test "direct application of sub-absento"
+        (run* (p)
+          (sub-absento 2 p))
+        '((_.0 (sub-absento (2 _.0))))))

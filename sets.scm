@@ -28,9 +28,12 @@
   (protocol
    (lambda (new)
      (lambda (head tail)
-       (if (null? head)
-           tail
-           (new head tail))))))
+       (cond
+        [(nonempty-set? tail)
+         (make-nonempty-set (append head (nonempty-set-head tail))
+                            (nonempty-set-tail tail))]
+        [(null? head) tail]
+        [else (new head tail)])))))
 
 (define (set-head st)
   (if (nonempty-set? st)
