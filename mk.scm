@@ -37,9 +37,12 @@
 
 (define var
   (let ((counter -1))
-    (lambda (scope)
-      (set! counter (+ 1 counter))
-      (vector unbound scope counter))))
+    (case-lambda
+      [(scope)
+       (var scope 'unnamed)]
+      [(scope name)
+       (set! counter (+ 1 counter))
+       (vector unbound scope counter name)])))
 
 ; Vectors are not allowed as terms, so terms that are vectors
 ; are variables.
@@ -287,7 +290,7 @@ The scope of each RHS has access to prior binders, à la let*
        (suspend
          (let ((scope (subst-scope (state-S st))))
            ;; Use let* to force left-to-right variable allocation order
-           (let* ((x (var scope)) ...)
+           (let* ((x (var scope 'x)) ...)
              ;; Use let to get a duplicate binding error.
              (let ((x x) ...)
                (bind* (g0 st) g ...)))))))))
@@ -368,7 +371,7 @@ The scope of each RHS has access to prior binders, à la let*
              (unify* `([,t0          . ,t^j]
                        [,($ t1..m X) . ,($ head^ X)])
                      st)
-             (let* ([N         (var (car s))]
+             (let* ([N         (var (car s) 'N)]
                     [st        ((seto N) st)])
                (unify* `([,tail^       . ,($ (list t0) N)]
                          [,($ t1..m N) . ,($ head^ N)])
@@ -394,10 +397,10 @@ The scope of each RHS has access to prior binders, à la let*
        (unify* `([,t . ,t^]
                  [,r . ,set^])
                st)
-       (let* ([N   (var (subst-scope (state-S st)))]
-              [st^ ((seto N) st)])
-         (unify* `([,r  . ,(set-cons t^ N)]
-                   [,r^ . ,(set-cons t N)])
+       (let* ([M   (var (subst-scope (state-S st)) 'M)]
+              [st^ ((seto M) st)])
+         (unify* `([,r  . ,(set-cons t^ M)]
+                   [,r^ . ,(set-cons t M)])
                  st^)))))
 
   (if (eq? tail tail^)
