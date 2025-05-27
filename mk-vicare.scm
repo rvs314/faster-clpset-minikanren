@@ -148,6 +148,8 @@
         acc
         (loop (f acc (vector-ref vect i)) (add1 i)))))
 
-(define (filter-map f l) (filter (lambda (x) x) (map f l)))
+(define (filter-map f l) (filter values (map f l)))
 
 (define (append* l*) (apply append l*))
+
+(define (append-map f l) (append* (map f l)))

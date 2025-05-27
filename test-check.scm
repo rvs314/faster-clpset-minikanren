@@ -28,7 +28,7 @@
              (failf "~s Failed: ~s~%Expected: ~s~%Computed: ~s~%"
                     'title 'tested-expression expected produced)))))))
 
-(define unordered-test-budget 200)
+(define unordered-test-budget 300)
 
 (define-syntax test-unordered
   (syntax-rules (run)

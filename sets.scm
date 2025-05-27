@@ -30,8 +30,8 @@
      (lambda (head tail)
        (cond
         [(nonempty-set? tail)
-         (new (append head (nonempty-set-head tail))
-              (nonempty-set-tail tail))]
+         (make-nonempty-set (append head (nonempty-set-head tail))
+                            (nonempty-set-tail tail))]
         [(null? head) tail]
         [else (new head tail)])))))
 
