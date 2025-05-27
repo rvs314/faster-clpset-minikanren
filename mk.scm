@@ -419,6 +419,15 @@ The scope of each RHS has access to prior binders, à la let*
         (cdr S.added)))
      (ext-s-check u v s)))
 
+  (define (has-tail? u v)
+    (cond
+     [(nonempty-set? u) (has-tail? (set-tail u) v)]
+     [(var? u)          (or (var-eq? u v)
+                            (let ((res (subst-lookup u (state-S st))))
+                              (and (not (unbound? res))
+                                   (has-tail? res v))))]
+     [else              #f]))
+
   (let ((u (walk u s))
         (v (walk v s)))
     (cond
@@ -427,6 +436,18 @@ The scope of each RHS has access to prior binders, à la let*
        (if (> (var-idx u) (var-idx v))
          (extend u v)
          (extend v u)))
+      ;; For an explanation of the following two cases, see GH issue #7
+      ((and (set-pair? u) (var? v) (has-tail? u v))
+       ;; TODO: Potentially make this use the current scope
+       (let ((new-var (var nonlocal-scope)))
+         (unify (make-nonempty-set (set-head (walk* u st)) new-var)
+                v
+                st)))
+      ((and (set-pair? v) (var? u) (has-tail? v u))
+       (let ((new-var (var nonlocal-scope)))
+         (unify (make-nonempty-set (set-head (walk* v st)) new-var)
+                u
+                st)))
       ((var? u) (extend u v))
       ((var? v) (extend v u))
       ((and (set-pair? u) (set-pair? v)) (unify-sets u v st))
@@ -453,8 +474,10 @@ The scope of each RHS has access to prior binders, à la let*
     (cond
       ((var? v) (var-eq? v x))
       ((set-pair? v)
-       (or (occurs-check x (set-first v) S)
-           (occurs-check x (set-rest v) S)))
+       (let ((hd (set-head v)) (tl (set-tail v)))
+         (or (ormap (lambda (m) (occurs-check x m S)) hd)
+             (and (not (and (var? x) (var-eq? x tl)))
+                  (occurs-check x tl S)))))
       ((pair? v)
        (or (occurs-check x (car v) S)
            (occurs-check x (cdr v) S)))
