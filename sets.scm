@@ -28,18 +28,21 @@
   (protocol
    (lambda (new)
      (lambda (head tail)
-       (if (null? head)
-           tail
-           (new head tail))))))
+       (cond
+        [(nonempty-set? tail)
+         (new (append head (nonempty-set-head tail))
+              (nonempty-set-tail tail))]
+        [(null? head) tail]
+        [else (new head tail)])))))
 
 (define (set-head st)
   (if (nonempty-set? st)
-      (nonempty-set-head st)
+      (append (nonempty-set-head st) (set-head (nonempty-set-tail st)))
       '()))
 
 (define (set-tail st)
   (if (nonempty-set? st)
-      (nonempty-set-tail st)
+      (set-tail (nonempty-set-tail st))
       st))
 
 (define (set-parts st)
@@ -56,13 +59,7 @@
    (nonempty-set-tail set)))
 
 (define (set-cons elem set)
-  (if (nonempty-set? set)
-      (make-nonempty-set
-       (cons elem (nonempty-set-head set))
-       (nonempty-set-tail set))
-      (make-nonempty-set
-       (list elem)
-       set)))
+  (make-nonempty-set (list elem) set))
 
 (define (set? obj)
   (or (null-set? obj) (set-pair? obj)))
