@@ -92,10 +92,10 @@
   ; variable object if we haven't branched since its creation
   ; (the scope of the variable and the substitution are the same).
   ; Otherwise extend the substitution mapping.
-  (if (scope-eq? (var-scope x) (subst-scope S))
-    (begin (set-var-val! x v)
-           S)
-    (subst (subst-map-add (subst-map S) x v) (subst-scope S))))
+  (if (and (scope-eq? (var-scope x) (subst-scope S)) (not (scope-eq? (var-scope x) nonlocal-scope)))
+      (begin (set-var-val! x v)
+             S)
+      (subst (subst-map-add (subst-map S) x v) (subst-scope S))))
 
 (define (subst-lookup x S)
   ; set-var-val! optimization.

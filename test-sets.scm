@@ -152,6 +152,25 @@
           ((_.0 ,(set* '_.0 '_.1) _.0 _.1) (set _.1))
           ((_.0 ,(set* '_.1 '_.2) _.1 ,(set* '_.0 '_.2)) (set _.2)))))
 
+;; occurs-check
+(begin
+  (test "Subterm fails occurs-check"
+        (run* (p)
+          (== p (set p)))
+        '())
+  (test "\"recursive\" set tails are equivalent to fresh variables"
+        (run* (p)
+          (== p (set* 1 p)))
+        `((,(set* 1 _.0) (set _.0))))
+  (test "Relay race"
+         (run* (p q r s)
+           (== s p)
+           (== p (set* 1 q))
+           (== q (set* 2 r))
+           (== r (set* 3 s)))
+         `(((,(set* 1 2 3 _.0) ,(set* 1 2 3 _.0) ,(set* 1 2 3 _.0) ,(set* 1 2 3 _.0))
+            (set _.0)))))
+
 ;; Set with disequality
 (begin
   (test "sets with disequality"
@@ -568,7 +587,10 @@
   (test "Constraint inference during unification"
         (run* (q)
           (== (set* 1 q) (set* 1 q)))
-        '((_.0 (set _.0))))
+        `((_.0 (set _.0))
+          (,(set* 1 _.0) (set _.0))
+          (,(set* 1 _.0) (set _.0))
+          (,(set* 1 _.0) (set _.0))))
   (test "Chat with Will"
         (run* (q)
           (== (set* 1 q) (set* 1 q))

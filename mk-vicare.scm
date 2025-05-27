@@ -119,7 +119,8 @@
                                                      (cdr k)))
                                              children)])
                          (append shifted (loop (add1 i))))
-                       '()))]))
+                       '()))]
+   [else (error 'intmap->list "Invalid intmap")]))
 
 ;; Misc. missing functions
 
