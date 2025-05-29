@@ -672,7 +672,8 @@
           (absento 3 p))
         '((_.0 (set _.0) (absento (3 _.0))))))
 
-;; Use of sub-absento in the case of partially instantiated sets
+
+;; Absento reification
 
 (begin
   (test "descending into set-cons"
@@ -683,3 +684,20 @@
         (run* (p)
           (sub-absento 2 p))
         '((_.0 (sub-absento (2 _.0))))))
+
+;; Disequality weirdness
+(begin
+  (test "FAILING: smaller example"
+        (run* (q)
+          (=/= (set 3 4) (set* 4 3 q))
+          (== q (set)))
+        '())
+
+  (test "indirect inequality"
+        (run* (v1 v2)
+          (=/= v1 v2)
+          (== v1 (set 3 4))
+          (fresh (s2)
+            (== v2 (set* 4 3 s2))))
+        `(((,(set 3 4) ,(set* 3 4 _.0))
+           (set _.0)))))
