@@ -35,14 +35,15 @@
 (define unbound (list 'unbound))
 (define (unbound? v) (eq? v unbound))
 
+(define *var-counter* (make-parameter -1))
+
 (define var
-  (let ((counter -1))
-    (case-lambda
-      [(scope)
-       (var scope 'unnamed)]
-      [(scope name)
-       (set! counter (+ 1 counter))
-       (vector unbound scope counter name)])))
+  (case-lambda
+    [(scope)
+     (var scope 'unnamed)]
+    [(scope name)
+     (*var-counter* (+ 1 (*var-counter*)))
+     (vector unbound scope (*var-counter*) name)]))
 
 ; Vectors are not allowed as terms, so terms that are vectors
 ; are variables.
