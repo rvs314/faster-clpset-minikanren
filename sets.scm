@@ -28,6 +28,8 @@
   (protocol
    (lambda (new)
      (lambda (head tail)
+       (unless (list? head)
+         (error 'make-nonempty-set "Improper nonempty-set" head tail))
        (cond
         [(nonempty-set? tail)
          (make-nonempty-set (append head (nonempty-set-head tail))
@@ -83,10 +85,12 @@
          (display " | " prt)
          (wrt tail prt))
        (display "}" prt)]
-      [else
+      [(pair? head)
        (wrt (car head) prt)
        (display " " prt)
-       (loop (cdr head) tail)]))))
+       (loop (cdr head) tail)]
+      [(not (pair? head))
+       (error 'write "Invalid set object" obj)]))))
 
 (define (set->list set)
   (cond
