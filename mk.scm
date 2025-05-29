@@ -723,24 +723,23 @@ The scope of each RHS has access to prior binders, à la let*
 ; (Listof Association) -> Goal
 (define (=/=* S+)
   (lambda (st)
-    (let ((S.added-inf
-           (unify* S+
-                   (state-with-S
-                    st
-                    (subst-with-scope (state-S st) nonlocal-scope)))))
-      (map-bind-inf
-       (lambda (S.added)
-         (let ([added (cdr S.added)])
-           (if (null? added)
-               fail
-               (let ([assoc (car added)])
-                 (fresh ()
-                   (add-to-D (lhs assoc) added)
-                   (if (var? (rhs assoc))
-                       (add-to-D (rhs assoc) added)
-                       succeed))))))
-       S.added-inf
-       st))))
+    (define (possible-unification->goal S.added)
+      (define added (cdr S.added))
+      (display (list S+ added))
+      (newline)
+      (if (null? added)
+          fail
+          (let ([assoc (car added)])
+            (fresh ()
+              (add-to-D (lhs assoc) added)
+              (if (var? (rhs assoc))
+                  (add-to-D (rhs assoc) added)
+                  succeed)))))
+    (let* ((clean-state (state-with-S
+                         st
+                         (subst-with-scope (state-S st) nonlocal-scope)))
+           (S.added-inf (unify* S+ clean-state)))
+      (map-bind-inf possible-unification->goal S.added-inf st))))
 
 ; Term, Term -> Goal
 (define (=/= u v)
