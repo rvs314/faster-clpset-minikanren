@@ -1146,10 +1146,10 @@ The scope of each RHS has access to prior binders, à la let*
               (map (lambda (x)
                      (filter-map (normalize-diseq st) (c-D (lookup-c st x))))
                    relevant-vars)))
-  (define A (append*
+  (define B (append*
               (map (lambda (x)
-                     (map (lambda (a-lhs)
-                            (cons (walk* a-lhs (state-S st))
+                     (map (lambda (b-lhs)
+                            (cons (walk* b-lhs (state-S st))
                                   x))
                           (c-B (lookup-c st x))))
                    relevant-vars)))
@@ -1174,7 +1174,7 @@ The scope of each RHS has access to prior binders, à la let*
                                  x))
                          (c-U (lookup-c st x))))
                   relevant-vars)))
-  (values T D A M E U))
+  (values T D B M E U))
 
 (define (normalize-diseq st)
   (lambda (S+)
