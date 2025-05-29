@@ -1510,7 +1510,7 @@ The scope of each RHS has access to prior binders, à la let*
   (let-values ([(idx pr) (index+element-where type-orderings (lambda (pr) ((lhs pr) v)))])
     (if idx
       (values idx (rhs pr))
-      (error 'type-index "missing ordering for type of value ~s" v))))
+      (errorf 'type-index "missing ordering for type of value ~s" v))))
 
 ; (Term, Term) -> (or CompareResult error)
 ; defined when arguments are pairs, null, or types addressed by type-constraints;
