@@ -396,7 +396,7 @@ The scope of each RHS has access to prior binders, à la let*
            [r  (set-rest  set)]
            [t^ (set-first set^)]
            [r^ (set-rest  set^)]
-           [st (state-with-scope st (new-scope))])
+           [st (state-with-scope st nonlocal-scope)])
       (mplus*
        (unify* `([,t . ,t^]
                  [,r . ,r^])
@@ -407,13 +407,13 @@ The scope of each RHS has access to prior binders, à la let*
        (unify* `([,t . ,t^]
                  [,r . ,set^])
                st)
-       (let* ([M   (var (subst-scope (state-S st)) 'M)]
+       (let* ([M   (var nonlocal-scope 'M)]
               [st^ ((seto M) st)])
          (unify* `([,r  . ,(set-cons t^ M)]
                    [,r^ . ,(set-cons t M)])
                  st^)))))
 
-  (if (eq? tail tail^)
+  (if (equal? tail tail^)
       (set-induction)
       (set-enumeration)))
 
