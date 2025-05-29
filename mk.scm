@@ -306,6 +306,15 @@ The scope of each RHS has access to prior binders, à la let*
              (bind* (g0 st) g ...)
              (bind* (g1 st) g^ ...) ...)))))))
 
+(define-syntax disj
+  (syntax-rules ()
+    [(disj g0)    g0]
+    [(disj g ...) (conde [g] ...)]))
+
+(define-syntax conj
+  (syntax-rules ()
+    [(conj g0 g ...) (fresh () g0 g ...)]))
+
 (define-syntax toplevel-query
   (syntax-rules ()
     [(toplevel-query (q) g0 g ...)
