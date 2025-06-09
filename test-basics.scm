@@ -10,11 +10,15 @@
 ;; Inv: (take #f (shaky-stream L)) = L
 (define (shaky-stream lst)
   (cond
-   [(flip)                         (suspend (shaky-stream lst))]
+   [(flip)
+    (let ((rst (shaky-stream lst)))
+      (suspend rst))]
    [(null? lst)                    #f]
    [(and (null? (cdr lst)) (flip)) (car lst)]
-   [else                           (cons (car lst)
-                                         (suspend (shaky-stream (cdr lst))))]))
+   [else
+    (let ((rst (shaky-stream (cdr lst))))
+      (cons (car lst)
+            (suspend rst)))]))
 
 (let ([strm   (shaky-stream (iota 20))]
       [triple (lambda (el) (shaky-stream (make-list 3 el)))])
