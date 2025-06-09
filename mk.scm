@@ -307,14 +307,19 @@ The scope of each RHS has access to prior binders, à la let*
              (bind* (g0 st) g ...)
              (bind* (g1 st) g^ ...) ...)))))))
 
-(define-syntax disj
-  (syntax-rules ()
-    [(disj g0)    g0]
-    [(disj g ...) (conde [g] ...)]))
+(define disj
+  (case-lambda
+    [()       fail]
+    [(k)      k]
+    [(k j)    (conde [k] [j])]
+    [(k . ks) (fold-left disj k ks)]))
 
-(define-syntax conj
-  (syntax-rules ()
-    [(conj g0 g ...) (fresh () g0 g ...)]))
+(define conj
+  (case-lambda
+    [()       succeed]
+    [(k)      k]
+    [(k j)    (lambda (st) (bind* st k j))]
+    [(k . ks) (fold-left conj k ks)]))
 
 (define-syntax toplevel-query
   (syntax-rules ()
@@ -402,7 +407,7 @@ The scope of each RHS has access to prior binders, à la let*
                  [,r . ,r^])
                st)
        (unify* `([,t   . ,t^]
-                 [,set . ,r^])
+                 [,(set* t r) . ,r^])
                st)
        (unify* `([,t . ,t^]
                  [,r . ,set^])
@@ -418,8 +423,6 @@ The scope of each RHS has access to prior binders, à la let*
       (set-enumeration)))
 
 ; Unification
-
-
 
 (define (unify u v st)
   (define s (state-S st))
@@ -725,8 +728,6 @@ The scope of each RHS has access to prior binders, à la let*
   (lambda (st)
     (define (possible-unification->goal S.added)
       (define added (cdr S.added))
-      (display (list S+ added))
-      (newline)
       (if (null? added)
           fail
           (let ([assoc (car added)])
@@ -738,8 +739,9 @@ The scope of each RHS has access to prior binders, à la let*
     (let* ((clean-state (state-with-S
                          st
                          (subst-with-scope (state-S st) nonlocal-scope)))
-           (S.added-inf (unify* S+ clean-state)))
-      (map-bind-inf possible-unification->goal S.added-inf st))))
+           (S.added*    (take #f (unify* S+ clean-state))))
+      ((apply conj (map possible-unification->goal S.added*))
+       st))))
 
 ; Term, Term -> Goal
 (define (=/= u v)
@@ -952,23 +954,12 @@ The scope of each RHS has access to prior binders, à la let*
     (let ((res (proc (car lst) init)))
       (and res (and-foldl proc res (cdr lst))))))
 
-;; (Listof (Expander a)) -> (Expander a)
-;; A goal constructor which takes a list of goals, conjoining them in series.
-;; `(then ...)` is equivalent to `(fresh () ...)`,
-;; but is a procedure instead of syntax
-;; Equivalent to a variadic version of Haskell's `>=>` operator
-(define (then . goals)
-  (define (then2 goal1 goal2)
-    (lambda (st)
-      (bind (goal1 st) goal2)))
-  (foldl then2 succeed goals))
-
 ;; a, (Listof (Expander a)) -> (Streamof a)
 ;; Applies a list of goals to an initial state
 ;; `(bind-foldl state (list goal ...))` is equivalent to `(bind* state goal ...)`,
 ;; but is a procedure, rather than syntax
 (define (bind-foldl state goals)
-  ((apply then goals) state))
+  ((apply conj goals) state))
 
 ;; (acc elem -> acc) acc (Streamof elem) -> acc
 ;; Folds the accumulator over a stream of values
