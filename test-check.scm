@@ -5,11 +5,6 @@
   (apply printf msg args)
   #f)
 
-(define (log . parts)
-  (display parts)
-  (newline)
-  (cdr (last-pair parts)))
-
 (define _.0 '_.0)
 (define _.1 '_.1)
 (define _.2 '_.2)
@@ -21,12 +16,12 @@
   (syntax-rules ()
     ((_ title tested-expression expected-result)
      (begin
-       (printf "Testing ~s\n" title)
+       (printf "Testing ~a\n" title)
        (let* ((expected expected-result)
               (produced tested-expression))
          (or (equal? expected produced)
-             (failf "~s Failed: ~s~%Expected: ~s~%Computed: ~s~%"
-                    'title 'tested-expression expected produced)))))))
+             (failf "Test ~a has failed: ~s~%Expected: ~s~%Computed: ~s~%"
+                    title 'tested-expression expected produced)))))))
 
 (define unordered-test-budget 300)
 
@@ -37,7 +32,7 @@
       (run k (v) g ...)
       results-expr)
      (begin
-       (printf "Testing ~s~%" name)
+       (printf "Testing ~a~%" name)
        (let loop ([answer-stream (toplevel-query (v) g ...)]
                   [expected-results results-expr]
                   [i 0])
@@ -52,6 +47,20 @@
              (if next
                  (loop rest (remove next expected-results) (add1 i))
                  (failf "~s Failed: Did not find answers: ~s~%" expected-results)))]))))))
+
+(define-syntax run-tests
+  (syntax-rules ()
+    [(_ test-name test-number) (begin)]
+    [(_ test-name test-number [expression expected-result] more ...)
+     (begin
+       (test (format "~a/~a" 'test-name test-number)
+             expression expected-result)
+       (run-tests test-name (+ 1 test-number) more ...))]))
+
+(define-syntax define-tests
+  (syntax-rules ()
+    [(_ test-name args ...)
+     (run-tests test-name 1 args ...)]))
 
 ;; Flips a coin with a 1/K chance of giving heads,
 ;; where K = 2 by default
