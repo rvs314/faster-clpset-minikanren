@@ -729,29 +729,185 @@ The scope of each RHS has access to prior binders, à la let*
            st^
            (c-U c))))))
 
+(define (atom? obj)
+  (or (set-null? obj)
+      (null? obj)
+      (symbol? obj)
+      (char? obj)
+      (string? obj)
+      (number? obj)))
+
 ; (Listof Association) -> Goal
 (define (=/=* S+)
-  (lambda (st)
-    (define (possible-unification->goal S.added)
-      (define added (cdr S.added))
-      (if (null? added)
-          fail
-          (let ([assoc (car added)])
-            (fresh ()
-              (add-to-D (lhs assoc) added)
-              (if (var? (rhs assoc))
-                  (add-to-D (rhs assoc) added)
-                  succeed)))))
-    (let* ((clean-state (state-with-S
-                         st
-                         (subst-with-scope (state-S st) nonlocal-scope)))
-           (S.added*    (take #f (unify* S+ clean-state))))
-      ((apply conj (map possible-unification->goal S.added*))
-       st))))
+  (fold-left
+   (lambda (acc assoc)
+     (conj acc
+           (=/= (car assoc) (cdr assoc))))
+   succeed
+   S+))
 
-; Term, Term -> Goal
-(define (=/= u v)
-  (=/=* (list (cons u v))))
+#|
+Currently, disunification is written using a naive algorithm
+which often uses the system's disjunction when the disunification constraint
+itself contains a notion of disjunction. However, there are cases in which
+we do need to generate a genuine goal and therefore use more typical notions of
+disjunction. In order to rectify this, we use a partially free structure which includes
+both a number of first-order goals constructors and a higher-order goal constructors,
+to which we fall back in the more general case.
+
+
+Free-Goal: (U Higher-Order-Goal  Free-Disjunction Free-Conjunction Free-Disunification)
+Higher-Order-Goal: (cons/c 'goal Goal)
+Free-Disjunction: (cons/c 'disj (listof Free-Goal))
+Free-Conjunction: (cons/c 'conj (listof Free-Goal))
+Free-Disunification: (cons/c '=/= (listof Free-Goal))
+|#
+
+(define (tagged-list-predicate tag)
+  (lambda (obj)
+    (and (list? obj) (pair? obj) (eq? (car obj) tag))))
+
+(define singleton? (conjoin pair? (compose null? cdr)))
+
+(define free-disjunction?    (tagged-list-predicate 'disj))
+(define free-conjunction?    (tagged-list-predicate 'conj))
+(define free-disunification? (tagged-list-predicate '=/=))
+(define free-success?        (conjoin free-conjunction? singleton?))
+(define free-failure?        (conjoin free-disjunction? singleton?))
+(define higher-order-goal?   (tagged-list-predicate 'goal))
+
+(define (opposite-end end)
+  (case end
+    [(disj) 'conj]
+    [(conj) 'disj]
+    [else   (error 'opposite-end "Invalid end" end)]))
+
+(define (end->constructor end)
+  (case end
+    [(disj) disj]
+    [(conj) conj]
+    [else   (error 'end->constructor "Invalid end" end)]))
+
+(define (higher-order-goal goal) `(goal ,goal))
+
+(define free-failure '(disj))
+(define free-success '(conj))
+
+(define (free-disunification left right)
+  (assert (var? left))
+  (list '=/= left right))
+
+(define (free-goal->higher-order-goal gl)
+  (cond
+   [(free-disjunction? gl)
+    (apply disj (map free-goal->higher-order-goal (cdr gl)))]
+   [(free-conjunction? gl)
+    (apply conj (map free-goal->higher-order-goal (cdr gl)))]
+   [(free-disunification? gl)
+    (let-values ([(_ left right) (apply values gl)])
+      (conj
+       (if (var? right)
+           (add-to-D right (list (cons right left)))
+           succeed)
+       (add-to-D left (list (cons left right)))))]
+   [(higher-order-goal? gl)
+    (cadr gl)]
+   [else (error "Invalid free goal" gl)]))
+
+(define (free-extrema higher-end)
+  (define lower-end (opposite-end higher-end))
+  (define join? (tagged-list-predicate higher-end))
+  (define meet? (tagged-list-predicate lower-end))
+  (define top   (list lower-end))
+  (define bot   (list higher-end))
+  (lambda objs
+    (define (free-join2 left right)
+      (cond
+       [(or (equal? top left) (equal? top right))
+        top]
+       [(equal? bot left)  right]
+       [(equal? bot right) left]
+       [(and (join? left) (join? right))
+        (append (list higher-end) (cdr left) (cdr right))]
+       [(or (higher-order-goal? left) (higher-order-goal? right))
+        (higher-order-goal
+         ((end->constructor higher-end)
+          (free-goal->higher-order-goal left)
+          (free-goal->higher-order-goal right)))]
+       [(join? left)  `(,higher-end ,@(cdr left) ,right)]
+       [(join? right) `(,higher-end ,left ,@(cdr right))]
+       [else          `(,higher-end ,left ,right)]))
+    (reduce free-join2 bot objs)))
+
+(define free-disjunction (free-extrema 'disj))
+(define free-conjunction (free-extrema 'conj))
+
+;; Term, Term, Substitution -> Free-Goal
+;; Given two terms and a substitution, return a free goal which
+;; implements the disunification of the two terms given that substitution
+(define (disunify left right subst)
+  (let ([left  (walk left subst)]
+        [right (walk right subst)])
+    (cond
+     [(equal? left right)
+      free-failure]
+     [(and (atom? left) (atom? right))
+      free-success]
+     [(and (pair? left) (pair? right))
+      (free-disjunction
+       (disunify (car left) (car right) subst)
+       (disunify (cdr left) (cdr right) subst))]
+     [(and (set-pair? left) (set-pair? right))
+      (higher-order-goal
+       (fresh (N)
+         (conde
+          [(ino N left) (!ino N right)]
+          [(ino N right) (!ino N left)])))]
+     [(not (or (var? left) (var? right)))
+      free-success]
+     [(and (var? right) (not (var? left)))
+      (disunify right left subst)]
+     [(var-eq? left right)
+      free-failure]
+     [else
+      (higher-order-goal
+       (conj
+        (if (var? right)
+            (add-to-D right (list (cons right left)))
+            succeed)
+        (add-to-D left (list (cons left right)))))])))
+
+;; Term, Term -> Goal
+;; Holds IFF and the left and right objects are different
+(define (=/= left right)
+  (lambda (st)
+    ((free-goal->higher-order-goal (disunify left right (state-S st))) st)))
+#;(project0 (left right)
+    (cond
+     [(equal? left right)
+      fail]
+     [(and (atom? left) (atom? right))
+      succeed]
+     [(and (pair? left) (pair? right))
+      (conde [(=/= (car left) (car right))]
+             [(=/= (cdr left) (cdr right))])]
+     [(and (set-pair? left) (set-pair? right))
+      (fresh (N)
+        (conde
+         [(ino N left) (!ino N right)]
+         [(!ino N left) (ino N right)]))]
+     [(not (or (var? left) (var? right)))
+      succeed]
+     [(and (var? right) (not (var? left)))
+      (=/= right left)]
+     [(var-eq? left right)
+      fail]
+     [else
+      (conj
+       (if (var? right)
+           (add-to-D right (list (cons right left)))
+           succeed)
+       (add-to-D left (list (cons left right))))]))
 
 (define-syntax project
   (syntax-rules ()
