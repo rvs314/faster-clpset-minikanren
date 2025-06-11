@@ -153,3 +153,36 @@
 (define (append* l*) (apply append l*))
 
 (define (append-map f l) (append* (map f l)))
+
+;; Returns a predicate that evaluates to #t if all provided predicates do.
+(define (conjoin . predicates)
+  (lambda (obj)
+    (let loop ((predicates predicates))
+      (or (null? predicates)
+          (and ((car predicates) obj)
+               (loop (cdr predicates)))))))
+
+;; Returns a predicate that evaluates to #t if any provided predicate does.
+(define (disjoin . predicates)
+  (lambda (obj)
+    (let loop ((predicates predicates))
+      (and (pair? predicates)
+           (or ((car predicates) obj)
+               (loop (cdr predicates)))))))
+
+;; Applies a binary function `f` over a sequence, or return a default value
+;; Equivalent to `fold` when `default` is a right identity for `f`
+(define (reduce f default seq)
+  (if (null? seq)
+      default
+      (foldl f (car seq) (cdr seq))))
+
+;; Returns a procedure that composes the given procedures right-to-left.
+(define (compose . procs)
+  (lambda objs
+    (let loop ((objs objs) (procs (reverse! procs)))
+      (if (null? procs)
+          (apply values objs)
+          (call-with-values (lambda () (apply (car procs) objs))
+            (lambda objs
+              (loop objs (cdr procs))))))))
