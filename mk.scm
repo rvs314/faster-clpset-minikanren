@@ -701,7 +701,7 @@ The scope of each RHS has access to prior binders, à la let*
   (seto    set?    set set-compare    valid-seto))
 
 ;; Var (Listof Association) -> Goal
-;; Add the primitive constraint that at least one of the associations hold
+;; Add the primitive constraint that at least one of the associations doesn't hold
 (define (add-to-D var assoc-list)
   (assert (pair? assoc-list))
   (lambda (st)
