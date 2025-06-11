@@ -321,6 +321,12 @@ The scope of each RHS has access to prior binders, à la let*
     [(k j)    (lambda (st) (bind* st k j))]
     [(k . ks) (fold-left conj k ks)]))
 
+(define (log . val)
+  (lambda (st)
+    (display ((reify val) st))
+    (newline)
+    (succeed st)))
+
 (define-syntax toplevel-query
   (syntax-rules ()
     [(toplevel-query (q) g0 g ...)
