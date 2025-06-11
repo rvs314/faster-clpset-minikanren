@@ -819,26 +819,19 @@ The scope of each RHS has access to prior binders, à la let*
   (seto p)
   (seto q)
   (project0 (p q)
-    (begin
-      (cond
-       [(or (null-set? p) (null-set? q))
-        succeed]
-       [(equal? p q)
-        (fresh ()
-          (== p (set))
-          (== q (set)))]
-       [(set-pair? p)
-        (fresh ()
-          (!ino (set-first p) q)
-          (disjo (set-rest p) q))]
-       [(set-pair? q)
-        (fresh ()
-          (!ino (set-first q) p)
-          (disjo (set-rest q) p))]
-       [(and (var? p) (var? q))
-        (lambda (st)
-          (add-to-E st p q))]
-       [else fail]))))
+    (cond
+     [(or (null-set? p) (null-set? q))
+      succeed]
+     [(equal? p q)
+      (conj (== p (set)) (== q (set)))]
+     [(set-pair? p)
+      (conj (!ino (set-first p) q) (disjo (set-rest p) q))]
+     [(set-pair? q)
+      (conj (!ino (set-first q) p) (disjo (set-rest q) p))]
+     [(and (var? p) (var? q))
+      (lambda (st)
+        (add-to-E st p q))]
+     [else fail])))
 
 ;; Term, Term -> Goal
 ;; Generalized 'absento': 'term1' can be any legal term (old version
@@ -850,28 +843,23 @@ The scope of each RHS has access to prior binders, à la let*
 ;; Term, Term -> Goal
 ;; Asserts that `term1` cannot occur in any subterm of `term2`
 (define (sub-absento term1 term2)
-  (lambda (st^)
-    (let ((term1 (walk term1 (state-S st^)))
-          (term2 (walk term2 (state-S st^))))
-      (cond
-       ((pair? term2)
-        (let*-bind ([st^^ ((absento term1 (car term2)) st^)])
-          ((absento term1 (cdr term2)) st^^)))
-       ((set-null? term2)
-        (succeed st^))
-       ((set-pair? term2)
-        ((fresh ()
-           (absento term1 (set-first term2))
-           (sub-absento term1 (set-rest term2)))
-         st^))
-       ((var? term2)
-        (let*-bind ([c (lookup-c st^ term2)])
-          (let* ((B (c-B c)))
-            (if (memv term1 B)
-              st^
+  (project0 (term1 term2)
+    (cond
+     [(pair? term2)
+      (conj (absento term1 (car term2))
+            (absento term1 (cdr term2)))]
+     [(set-pair? term2)
+      (conj (absento term1 (set-first term2))
+            (sub-absento term1 (set-rest term2)))]
+     [(var? term2)
+      (lambda (st)
+        (let* ((c (lookup-c st term2))
+               (B (c-B c)))
+          (if (memv term1 B)
+              (succeed st)
               (let ((c^ (c-with-B c (cons term1 B))))
-                (set-c st^ term2 c^))))))
-       (else st^)))))
+                (succeed (set-c st term2 c^))))))]
+     [else succeed])))
 
 (defrel (removeo set elem set-elem)
   (== set (set-cons elem set-elem))
