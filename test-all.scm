@@ -5,10 +5,8 @@
     (optimize-level 0)
     (debug-level 3))
 
-  (load "./test-check.scm")
-  (load "./sets.scm")
-  (load "./mk-vicare.scm")
-  (load "./mk.scm"))
+  (load "./all.scm")
+  (load "./test-check.scm"))
 
 (printf "vicare-tests\n")
 (load "./test-vicare.scm")
