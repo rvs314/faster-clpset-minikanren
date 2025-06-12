@@ -23,15 +23,16 @@
              (failf "Test ~a has failed: ~s~%Expected: ~s~%Computed: ~s~%"
                     title 'tested-expression expected produced)))))))
 
-(define unordered-test-budget 300)
-
 (define-syntax test-unordered
-  (syntax-rules (run)
+  (syntax-rules (run budget)
     ((test-unordered
       name
+      (budget budget-expr)
       (run k (v) g ...)
       results-expr)
-     (begin
+     (let ((budget budget-expr)
+           (res results-expr))
+       (assert (= (length res) k))
        (printf "Testing ~a~%" name)
        (let loop ([answer-stream (toplevel-query (v) g ...)]
                   [expected-results results-expr]
@@ -40,13 +41,22 @@
           [(null? expected-results)
            (printf "~s Passed: Took ~s extra answers~%" name (- i k))
            #t]
-          [(= i unordered-test-budget)
-           (failf "~s Failed: Exceded test budget~%" name)]
+          [(= i budget)
+           (failf "~s Failed: Exceded budget of ~a extra answers~%" name)]
           [else
            (let-values ([(next rest) (head+tail answer-stream)])
              (if next
                  (loop rest (remove next expected-results) (add1 i))
-                 (failf "~s Failed: Did not find answers: ~s~%" expected-results)))]))))))
+                 (failf "~s Failed: Did not find answers: ~s~%" expected-results)))]))))
+    ((test-unordered
+      name
+      (run k (v) g ...)
+      results-expr)
+     (test-unordered
+      name
+      (budget 300)
+      (run k (v) g ...)
+      results-expr))))
 
 (define-syntax run-tests
   (syntax-rules ()
