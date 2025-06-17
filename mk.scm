@@ -774,6 +774,7 @@ Free-Disunification: (cons/c '=/= (listof Free-Goal))
 (define free-disunification? (tagged-list-predicate '=/=))
 (define free-success?        (conjoin free-conjunction? singleton?))
 (define free-failure?        (conjoin free-disjunction? singleton?))
+(define free-subterms        cdr)
 (define higher-order-goal?   (tagged-list-predicate 'goal))
 
 (define (opposite-end end)
@@ -828,14 +829,14 @@ Free-Disunification: (cons/c '=/= (listof Free-Goal))
        [(equal? bot left)  right]
        [(equal? bot right) left]
        [(and (join? left) (join? right))
-        (append (list higher-end) (cdr left) (cdr right))]
+        (append (list higher-end) (free-subterms left) (free-subterms right))]
        [(or (higher-order-goal? left) (higher-order-goal? right))
         (higher-order-goal
          ((end->constructor higher-end)
           (free-goal->higher-order-goal left)
           (free-goal->higher-order-goal right)))]
-       [(join? left)  `(,higher-end ,@(cdr left) ,right)]
-       [(join? right) `(,higher-end ,left ,@(cdr right))]
+       [(join? left)  `(,higher-end ,@(free-subterms left) ,right)]
+       [(join? right) `(,higher-end ,left ,@(free-subterms right))]
        [else          `(,higher-end ,left ,right)]))
     (reduce free-join2 bot objs)))
 
