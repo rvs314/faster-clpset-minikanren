@@ -42,7 +42,7 @@
            (printf "~s Passed: Took ~s extra answers~%" name (- i k))
            #t]
           [(= i budget)
-           (failf "~s Failed: Exceded budget of ~a extra answers~%" name)]
+           (failf "~s Failed: Exceded budget of ~a extra answers~%" name budget)]
           [else
            (let-values ([(next rest) (head+tail answer-stream)])
              (if next

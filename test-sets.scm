@@ -687,7 +687,7 @@
 
 ;; Disequality weirdness
 (begin
-  (test "FAILING: smaller example"
+  (test "smaller example"
         (run* (q)
           (=/= (set 3 4) (set* 4 3 q))
           (== q (set)))
@@ -699,5 +699,9 @@
           (== v1 (set 3 4))
           (fresh (s2)
             (== v2 (set* 4 3 s2))))
-        `(((,(set 3 4) ,(set* 3 4 _.0))
-           (set _.0)))))
+        `(((,(set 3 4) ,(set* 3 4 _.0 _.1))
+           (=/= ((_.0 3)) ((_.0 4)))
+           (set _.1))
+          ((,(set 3 4) ,(set* 3 4 _.0 _.1 _.2))
+           (=/= ((_.0 3)) ((_.0 4)) ((_.1 3)) ((_.1 4)))
+           (set _.2)))))
