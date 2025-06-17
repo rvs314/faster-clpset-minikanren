@@ -170,6 +170,10 @@
            (or ((car predicates) obj)
                (loop (cdr predicates)))))))
 
+;; Returns a predicate which returns the logical opposite of the provided one
+(define (negate pred)
+  (lambda objs (not (apply pred objs))))
+
 ;; Applies a binary function `f` over a sequence, or return a default value
 ;; Equivalent to `fold` when `default` is a right identity for `f`
 (define (reduce f default seq)
@@ -179,10 +183,8 @@
 
 ;; Returns a procedure that composes the given procedures right-to-left.
 (define (compose . procs)
-  (lambda objs
-    (let loop ((objs objs) (procs (reverse! procs)))
-      (if (null? procs)
-          (apply values objs)
-          (call-with-values (lambda () (apply (car procs) objs))
-            (lambda objs
-              (loop objs (cdr procs))))))))
+  (define (compose2 left right)
+    (lambda objs
+      (call-with-values (lambda () (apply right objs))
+        left)))
+  (reduce compose2 values (reverse! procs)))
