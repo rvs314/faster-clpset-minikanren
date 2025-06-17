@@ -227,6 +227,16 @@ Ex:
               (cons (car right) left)
               (cdr right)))))
 
+;; Converts from two-element lists to pairs
+(define (list->pair lst)
+  (assert (= (length lst) 2))
+  (cons (car lst) (cadr lst)))
+
+;; Converts from pairs to two-element lists
+(define (pair->list pr)
+  (assert (pair? pr))
+  (list (car pr) (cdr pr)))
+
 (define (normalize-set set s)
   (cond
    [(null-set? set)
@@ -700,7 +710,7 @@ The scope of each RHS has access to prior binders, à la let*
   (symbolo symbol? sym symbol-compare)
   (seto    set?    set set-compare    valid-seto))
 
-;; Var (Listof Association) -> Goal
+;; Var, (Listof Association) -> Goal
 ;; Add the primitive constraint that at least one of the associations doesn't hold
 (define (add-to-D var assoc-list)
   (assert (pair? assoc-list))
@@ -737,14 +747,10 @@ The scope of each RHS has access to prior binders, à la let*
       (string? obj)
       (number? obj)))
 
-; (Listof Association) -> Goal
+
+;; (Listof Association) -> Goal
 (define (=/=* S+)
-  (fold-left
-   (lambda (acc assoc)
-     (conj acc
-           (=/= (car assoc) (cdr assoc))))
-   succeed
-   S+))
+  (=/= (map lhs S+) (map rhs S+)))
 
 #|
 Currently, disunification is written using a naive algorithm
@@ -798,23 +804,6 @@ Free-Disunification: (cons/c '=/= (listof Free-Goal))
   (assert (var? left))
   (list '=/= left right))
 
-(define (free-goal->higher-order-goal gl)
-  (cond
-   [(free-disjunction? gl)
-    (apply disj (map free-goal->higher-order-goal (cdr gl)))]
-   [(free-conjunction? gl)
-    (apply conj (map free-goal->higher-order-goal (cdr gl)))]
-   [(free-disunification? gl)
-    (let-values ([(_ left right) (apply values gl)])
-      (conj
-       (if (var? right)
-           (add-to-D right (list (cons right left)))
-           succeed)
-       (add-to-D left (list (cons left right)))))]
-   [(higher-order-goal? gl)
-    (cadr gl)]
-   [else (error "Invalid free goal" gl)]))
-
 (define (free-extrema higher-end)
   (define lower-end (opposite-end higher-end))
   (define join? (tagged-list-predicate higher-end))
@@ -842,6 +831,54 @@ Free-Disunification: (cons/c '=/= (listof Free-Goal))
 
 (define free-disjunction (free-extrema 'disj))
 (define free-conjunction (free-extrema 'conj))
+
+;; Asserts that the variable LEFT is not equal to the object RIGHT
+(defrel (primitive-disequality left right)
+  (if (var? right)
+      (add-to-D right (list (cons right left)))
+      succeed)
+  (add-to-D left (list (cons left right))))
+
+;; (Listof Association) -> Goal
+;; Takes a list of (atomic) associations and returns a goal
+;; which ensure at least one of them does not hold.
+(define (primitive-disequality disequalities)
+  (cond
+   [(null? disequalities) fail]
+   [(pair? disequalities)
+    (let* ((activated-association (car disequalities))
+           (activated-variables (filter
+                                 var?
+                                 (list (lhs activated-association)
+                                       (rhs activated-association)))))
+      (apply conj
+             (map (lambda (var)
+                    (add-to-D var disequalities))
+                  activated-variables)))]
+   [else (error 'primitive-disequality "Requires a list of associations")]))
+
+;; Free-Goal -> Goal
+(define (free-goal->higher-order-goal gl)
+  (cond
+   [(and (free-disjunction? gl)
+         (ormap free-disunification? (free-subterms gl)))
+    (let ([disunifications (filter free-disunification? (free-subterms gl))]
+          [other-goals (filter (negate free-disunification?) (free-subterms gl))])
+      (apply
+       disj
+       (primitive-disequality
+        (map (compose list->pair free-subterms) disunifications))
+       (map free-goal->higher-order-goal other-goals)))]
+   [(free-disjunction? gl)
+    (apply disj (map free-goal->higher-order-goal (free-subterms gl)))]
+   [(free-conjunction? gl)
+    (apply conj (map free-goal->higher-order-goal (free-subterms gl)))]
+   [(free-disunification? gl)
+    (let ([subterms (free-subterms gl)])
+      (primitive-disequality (list (cons (car subterms) (cadr subterms)))))]
+   [(higher-order-goal? gl)
+    (cadr gl)]
+   [else (error 'free-goal->higher-order-goal "Invalid free goal" gl)]))
 
 ;; Term, Term, Substitution -> Free-Goal
 ;; Given two terms and a substitution, return a free goal which
@@ -871,44 +908,13 @@ Free-Disunification: (cons/c '=/= (listof Free-Goal))
      [(var-eq? left right)
       free-failure]
      [else
-      (higher-order-goal
-       (conj
-        (if (var? right)
-            (add-to-D right (list (cons right left)))
-            succeed)
-        (add-to-D left (list (cons left right)))))])))
+      (free-disunification left right)])))
 
 ;; Term, Term -> Goal
 ;; Holds IFF and the left and right objects are different
 (define (=/= left right)
   (lambda (st)
     ((free-goal->higher-order-goal (disunify left right (state-S st))) st)))
-#;(project0 (left right)
-    (cond
-     [(equal? left right)
-      fail]
-     [(and (atom? left) (atom? right))
-      succeed]
-     [(and (pair? left) (pair? right))
-      (conde [(=/= (car left) (car right))]
-             [(=/= (cdr left) (cdr right))])]
-     [(and (set-pair? left) (set-pair? right))
-      (fresh (N)
-        (conde
-         [(ino N left) (!ino N right)]
-         [(!ino N left) (ino N right)]))]
-     [(not (or (var? left) (var? right)))
-      succeed]
-     [(and (var? right) (not (var? left)))
-      (=/= right left)]
-     [(var-eq? left right)
-      fail]
-     [else
-      (conj
-       (if (var? right)
-           (add-to-D right (list (cons right left)))
-           succeed)
-       (add-to-D left (list (cons left right))))]))
 
 (define-syntax project
   (syntax-rules ()
