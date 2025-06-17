@@ -50,12 +50,25 @@
                  (failf "~s Failed: Did not find answers: ~s~%" expected-results)))]))))
     ((test-unordered
       name
-      (run k (v) g ...)
+      (budget budget-expr)
+      (run k (v ...) g ...)
+      results-expr)
+     (test-unordered
+      name
+      (budget budget-expr)
+      (run k (q)
+        (fresh (v ...)
+          (== q (list v ...))
+          g ...))
+      results-expr))
+    ((test-unordered
+      name
+      (run k (v ...) g ...)
       results-expr)
      (test-unordered
       name
       (budget 300)
-      (run k (v) g ...)
+      (run k (v ...) g ...)
       results-expr))))
 
 (define-syntax run-tests
