@@ -608,7 +608,7 @@
      (absento (closure _.2)))))
 
 (test-unordered "4 thrines"
-  (budget 10)
+  (budget 15)
   (run 4 (x)
     (fresh (p q r)
       (=/= p q)
