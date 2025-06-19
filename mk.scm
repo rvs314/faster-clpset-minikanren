@@ -1129,22 +1129,6 @@ Free-Disunification: (cons/c '=/= (listof Free-Goal))
     [(c f) (let ((init^ (proc init c)))
              (fold-inf proc init^ (f)))]))
 
-;; (elem -> (Expander a)) (Streamof elem) (Streamof a) -> (Streamof a)
-;; An expander which takes a stream of values and a procedure
-;; for turning each of those values into an expander, folds
-;; the stream into a single expander which binds the elements.
-;; The expander terminates iff the stream terminates.
-;; This can't just be a `bind-inf`, as streams cannot contain
-;; procedures (and therefore cannot contain Expanders).
-(define (map-bind-inf proc strm init-strm)
-  (case-inf strm
-    [()    init-strm]
-    [(f)   (lambda () (map-bind-inf proc (f) init-strm))]
-    [(c)   (bind init-strm (proc c))]
-    [(c f) (let ([strm^ (bind init-strm (proc c))])
-             (lambda ()
-              (map-bind-inf proc (f) strm^)))]))
-
 ;; (in -> out) -> Streamof in -> Streamof out
 ;; Maps the stream over a given procedure
 (define (map-inf proc strm)
