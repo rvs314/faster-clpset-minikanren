@@ -1,5 +1,33 @@
 (define test-failed #f)
 
+(define quoted?
+  (disjoin
+   number?
+   string?
+   boolean?
+   symbol?
+   bytevector?
+   (conjoin pair? (lambda (obj) (eq? (car obj) 'quote)))))
+
+(define-syntax ensure
+  (syntax-rules ()
+    [(ensure (rator rand ...))
+     (let ((rator rator)
+           (operands (list rand ...)))
+       (unless (apply rator operands)
+         (raise-continuable
+          (condition
+           (make-assertion-violation)
+           (make-message-condition "Ensure statement failed")
+           (make-irritants-condition
+            (map
+             (lambda (s o)
+               (if (quoted? s)
+                   s
+                   `(,s => ,o)))
+             '(rator rand ...)
+             (cons rator operands)))))))]))
+
 (define (failf msg . args)
   (set! test-failed #t)
   (apply printf msg args)
