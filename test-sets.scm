@@ -162,13 +162,18 @@
     (run* (p)
       (== p (set* 1 p)))
     `((,(set* 1 _.0) (set _.0))))
+  (test "Shorter race"
+    (run* (a b)
+      (== b (set-cons 6 a))
+      (== a (set-cons 5 b)))
+    `(((,(set* 5 6 _.0) ,(set* 5 6 _.0))
+       (set _.0))))
   (test "Relay race"
-    (run* (p q r s)
-      (== s p)
+    (run* (p q r)
       (== p (set* 1 q))
       (== q (set* 2 r))
-      (== r (set* 3 s)))
-    `(((,(set* 1 2 3 _.0) ,(set* 1 2 3 _.0) ,(set* 1 2 3 _.0) ,(set* 1 2 3 _.0))
+      (== r (set* 3 p)))
+    `(((,(set* 1 2 3 _.0) ,(set* 1 2 3 _.0) ,(set* 1 2 3 _.0)) 
        (set _.0)))))
 
 ;; Set with disequality
