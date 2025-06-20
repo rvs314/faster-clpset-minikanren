@@ -2,19 +2,18 @@
 
 * Set Construction
 
-The set $\emptyset$ is written either as ~(set)~, ~∅~ or ~empty-set~.
-The set $\{p\} \cup T$ is written ~(set-cons p T)~, á la ~cons~.
+The set $\emptyset$ is written either as ~(set)~, ~'#(set)~ ~∅~ or ~empty-set~.
+The set $\{p\} \cup T$ is constructed using ~(set-cons p T)~, á la ~cons~.
 
 Note: unlike ~cons~, ~(set-cons p T)~ may be equal to ~T~ if ~p~ is already a member of ~T~.
 
-The set $\{x, y, z, \dots\}$ can also be written ~(set x y z ...)~, á la ~list~.
-The set $\{x, y, z, \dots\} \cup T$ can also be written ~(set* x y z ... T)~, á la ~list*~.
+The set $\{x, y, z, \dots\}$ can also be written ~(set x y z ...)~, á la ~list~, or as ~'#(set (x y z ...))~ (if the elements of the set are quotable).
+The set $\{x, y, z, \dots\} \cup T$ can also be written ~(set* x y z ... T)~, á la ~list*~, or as ~'#(set (x y z ...) T)~ (if the elements of the set are quotable).
 
-The set $\{x, y, z\}$ when displayed using ~write~ is written as ~{x y z}~.
-The set $\{x, y, z\} \cup T$ when displayed using ~write~ is written as ~{x y z | T}~.
-The set $\emptyset$ when displayed using ~write~ is written as ~∅~.
-
-Note: There is no reader implementation for sets due to limit in chez scheme's ~record-reader~ facilities. You cannot create a set using ~quote~.
+Set objects themselves are represented in one of three ways:
+The set $\emptyset$ is represented as the singleton vector ~'#(set)~.
+The set $\{x, y, ...\}$ is represented as the two-vector ~'#(set (x y ...))~
+The set $\{x, y, ...\} \cup T$ when represented as ~'#(set (x y z) T)~ if ~T~ is not a set.
 
 For the internal implementation of sets, see: [[file:sets.scm]]
 
@@ -33,11 +32,15 @@ The set-non-membership constraint ~(!ino p q)~ holds IFF ~p~ is not equal to any
 
 * Set Disjointedness
 
-The set-disjointedness constraint ~(disj p q)~ holds IFF ~p~ and ~q~ share no elements, or that no element of either set are equal to an element in the other.
+The set-disjointedness constraint ~(disjo p q)~ holds IFF ~p~ and ~q~ share no elements, or that no element of either set are equal to an element in the other.
 
 * Set Union
 
 The set-union constraint ~(uniono p q r)~ holds IFF ~r~ contains all the members of ~p~ and all the members of ~q~, but no others.
+
+* Recursive Absence on Sets
+
+The recursive absence constraint ~(absento p q)~ holds IFF ~p~ does not occur in any subterm of ~q~ and ~p~ is not itself ~q~.
 
 * Derived Constraints
 

@@ -43,20 +43,23 @@
      (var scope 'unnamed)]
     [(scope name)
      (*var-counter* (+ 1 (*var-counter*)))
-     (vector unbound scope (*var-counter*) name)]))
+     (vector 'var unbound scope (*var-counter*) name)]))
 
-; Vectors are not allowed as terms, so terms that are vectors
-; are variables.
-(define (var? x) (vector? x))
+;; Variables are represented as vectors tagged with an initial
+;; symbol `'var`
+(define (var? x)
+  (and (vector? x)
+       (eq? 'var (vector-ref x 0))))
 
 (define var-eq? eq?)
 
-(define (var-val x)   (vector-ref x 0))
-(define (var-scope x) (vector-ref x 1))
-(define (var-idx x)   (vector-ref x 2))
+(define (var-val x)   (vector-ref x 1))
+(define (var-scope x) (vector-ref x 2))
+(define (var-idx x)   (vector-ref x 3))
+(define (var-name x)  (vector-ref x 4))
 
 (define (set-var-val! x v)
-  (vector-set! x 0 v))
+  (vector-set! x 1 v))
 
 
 ; Substitution object.
@@ -242,7 +245,7 @@ Ex:
    [(null-set? set)
     set]
    [(nonempty-set? set)
-    (make-nonempty-set
+    (make-set
      (set-head set)
      (normalize-set (set-tail set) s))]
    [(var? set)
@@ -382,7 +385,7 @@ The scope of each RHS has access to prior binders, à la let*
   ;; Rule 10 of Dovier et. al
   (define (set-induction)
     ;; Just for shorthand
-    (define $ make-nonempty-set)
+    (define $ make-set)
 
     (let ([X tail] [t0 (car head)] [t1..m (cdr head)])
       (foldl
@@ -453,7 +456,7 @@ The scope of each RHS has access to prior binders, à la let*
 
   (define (chasing-tail u v)
     (let ((new-var (var nonlocal-scope)))
-      (unify (make-nonempty-set (set-head u) new-var)
+      (unify (make-set (set-head u) new-var)
              v
              st)))
 
@@ -465,8 +468,8 @@ The scope of each RHS has access to prior binders, à la let*
        (if (> (var-idx u) (var-idx v))
          (extend u v)
          (extend v u)))
-      ((and (set-pair? u) (var? v) (var-eq? v (nonempty-set-tail u))) (chasing-tail u v))
-      ((and (set-pair? v) (var? u) (var-eq? u (nonempty-set-tail v))) (chasing-tail v u))
+      ((and (set-pair? u) (var? v) (var-eq? v (set-tail u))) (chasing-tail u v))
+      ((and (set-pair? v) (var? u) (var-eq? u (set-tail v))) (chasing-tail v u))
       ((var? u) (extend u v))
       ((var? v) (extend v u))
       ((and (set-pair? u) (set-pair? v)) (unify-sets u v st))
@@ -494,8 +497,8 @@ The scope of each RHS has access to prior binders, à la let*
       ((var? v) (var-eq? v x))
       ((nonempty-set? v)
        (or (ormap (lambda (el) (occurs-check x el S))
-                  (nonempty-set-head v))
-           (occurs-check x (nonempty-set-tail v) S)))
+                  (set-head v))
+           (occurs-check x (set-tail v) S)))
       ((pair? v)
        (or (occurs-check x (car v) S)
            (occurs-check x (cdr v) S)))
@@ -687,7 +690,7 @@ The scope of each RHS has access to prior binders, à la let*
    [(error 'set-compare "cannot compare non-sets" x y)]))
 
 (define (valid-seto x)
-  (if (null-set? x)
+  (if (set-null? x)
       succeed
       (seto (set-rest x))))
 
@@ -1036,11 +1039,11 @@ Free-Disunification: (cons/c '=/= (listof Free-Goal))
   (project0 (l r l+r)
     (cond
      [(equal? l r)    (== l l+r)]
-     [(set-null? l+r) (fresh ()
+     [(null-set? l+r) (fresh ()
                         (== l ∅)
                         (== r ∅))]
-     [(set-null? l)   (== r l+r)]
-     [(set-null? r)   (== l l+r)]
+     [(null-set? l)   (== r l+r)]
+     [(null-set? r)   (== l l+r)]
      [(set-pair? l+r)
       (let ([t1 (set-first l+r)]
             [t2 (set-rest l+r)])
@@ -1134,9 +1137,9 @@ Free-Disunification: (cons/c '=/= (listof Free-Goal))
                          (infer-set-constraints (cdr term)))]
    [(nonempty-set? term)
     (let ([con-head (apply append
-                           (map infer-set-constraints (nonempty-set-head term)))]
-          [con-tail (infer-set-constraints (nonempty-set-tail term))])
-      (cons (nonempty-set-tail term) (append con-tail con-head)))]
+                           (map infer-set-constraints (set-head term)))]
+          [con-tail (infer-set-constraints (set-tail term))])
+      (cons (set-tail term) (append con-tail con-head)))]
    [else         '()]))
 
 (define (== u v)
@@ -1656,7 +1659,7 @@ Free-Disunification: (cons/c '=/= (listof Free-Goal))
     (let* ([s (normalize-set obj sub)]
            [h (unique (map (lambda (x) (simplify-S x sub)) (set-head s)))]
            [t (simplify-S (set-tail s) sub)])
-      (make-nonempty-set h t))]
+      (make-set h t))]
    [else obj]))
 
 (define (take-unique k strm)
