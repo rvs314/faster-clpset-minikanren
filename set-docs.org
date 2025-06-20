@@ -3,18 +3,23 @@
 * Set Construction
 
 The set $\emptyset$ is written either as ~(set)~, ~'#(set)~ ~∅~ or ~empty-set~.
-The set $\{p\} \cup T$ is written ~(set-cons p T)~, á la ~cons~.
+The set $\{p\} \cup T$ is constructed using ~(set-cons p T)~, á la ~cons~.
 
 Note: unlike ~cons~, ~(set-cons p T)~ may be equal to ~T~ if ~p~ is already a member of ~T~.
 
-The set $\{x, y, z, \dots\}$ can also be written ~(set x y z ...)~, á la ~list~, or ~'#(set (x y z ...) #(set))~ (if the elements of the set are quotable).
-The set $\{x, y, z, \dots\} \cup T$ can also be written ~(set* x y z ... T)~, á la ~list*~, or ~'#(set (x y z ...) #(set))~ (if the elements of the set are quotable).
+The set $\{x, y, z, \dots\}$ can also be written ~(set x y z ...)~, á la ~list~, or as ~'#(set (x y z ...))~ (if the elements of the set are quotable).
+The set $\{x, y, z, \dots\} \cup T$ can also be written ~(set* x y z ... T)~, á la ~list*~, or as ~'#(set (x y z ...) T)~ (if the elements of the set are quotable).
 
-The set $\{x, y, z\}$ when displayed using ~write~ is written as ~'#(set (x y z) #(set))~.
-The set $\{x, y, z\} \cup T$ when displayed using ~write~ is written as ~'#(set (x y z) T)~.
-The set $\emptyset$ when displayed using ~write~ is written as ~'#(set)~.
+Set objects themselves are represented in one of three ways:
+The set $\emptyset$ is represented as the singleton vector ~'#(set)~.
+The set $\{x, y, ...\}$ is represented as the two-vector ~'#(set (x y ...))~
+The set $\{x, y, ...\} \cup T$ when represented as ~'#(set (x y z) T)~ if ~T~ is not a set.
 
 For the internal implementation of sets, see: [[file:sets.scm]]
+
+* Set Literals
+
+The set operations all expect and assume set objects to be in proper form. If using the procedural constructors this is guaranteed by construction, but this guarantee is not present for sets written using ~quote~. For example, the set objects ~'#(set ())~ and ~'#(set () ())~ are both "equivalent" to the empty set from a naive reading, but are not semantically equivalent WRT to the procedures documented here, nor are they ~equal?~. In general, a set is in its proper form when it has typed with the fewest possible characters.
 
 * Set Unification
 
@@ -36,6 +41,10 @@ The set-disjointedness constraint ~(disjo p q)~ holds IFF ~p~ and ~q~ share no e
 * Set Union
 
 The set-union constraint ~(uniono p q r)~ holds IFF ~r~ contains all the members of ~p~ and all the members of ~q~, but no others.
+
+* Recursive Absence on Sets
+
+The recursive absence constraint ~(absento p q)~ holds IFF ~p~ does not occur in any subterm of ~q~ and ~p~ is not itself ~q~.
 
 * Derived Constraints
 
