@@ -521,7 +521,7 @@ The scope of each RHS has access to prior binders, à la let*
 ; (Expansion a): (a -> (Streamof a))
 ; Goal: (Expansion State)
 
-; Match on search streams. 
+; Match on search streams.
 ;
 ; (() e0)     failure
 ; ((f) e1)    suspension for interleaving. separate from success or failure to ensure
@@ -1362,19 +1362,19 @@ Free-Disunification: (cons/c '=/= (listof Free-Goal))
   ;; To keep backwards compatability with the existing reification visualization,
   ;; we rewrite sub-absento constraints into absento,
   ;; even if it means providing redundant information.
-  ;; 
+  ;;
   ;; For example:
   ;; ```
   ;; > (run* (p) (symbolo q) (absento 1 q))
   ;; ((_.0 (set _.0) (absento (1 _.0))))
   ;; ```
-  ;; 
+  ;;
   ;; In this case, we implicitly provide the redundant information that
   ;; `(=/= 1 q)`, which is obvious from the disjointness of types.
   ;; If we had only the `(=/= 1 q)` constraint, then we'd remove it
   ;; as being subsumed by the type constraint, but we use it when deciding
   ;; whether to use `absento` or `sub-absento` constraints.
-  ;; 
+  ;;
   ;; To do that, we recover the list of implicit disequalities
   ;; which are subsumed by the disjointness of types in absento
   (define Dv
