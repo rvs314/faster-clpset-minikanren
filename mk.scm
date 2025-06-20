@@ -451,35 +451,22 @@ The scope of each RHS has access to prior binders, à la let*
         (cdr S.added)))
      (ext-s-check u v s)))
 
-  (define (has-tail? u v)
-    (cond
-     [(nonempty-set? u) (has-tail? (set-tail u) v)]
-     [(var? u)          (or (var-eq? u v)
-                            (let ((res (subst-lookup u (state-S st))))
-                              (and (not (unbound? res))
-                                   (has-tail? res v))))]
-     [else              #f]))
+  (define (chasing-tail u v)
+    (let ((new-var (var nonlocal-scope)))
+      (unify (make-nonempty-set (set-head u) new-var)
+             v
+             st)))
 
-  (let ((u (walk u s))
-        (v (walk v s)))
+  (let ((u (normalize-set (walk u s) s))
+        (v (normalize-set (walk v s) s)))
     (cond
       ((eq? u v) (cons st '()))
       ((and (var? u) (var? v))
        (if (> (var-idx u) (var-idx v))
          (extend u v)
          (extend v u)))
-      ;; For an explanation of the following two cases, see GH issue #7
-      ((and (set-pair? u) (var? v) (has-tail? u v))
-       ;; TODO: Potentially make this use the current scope
-       (let ((new-var (var nonlocal-scope)))
-         (unify (make-nonempty-set (set-head (walk* u st)) new-var)
-                v
-                st)))
-      ((and (set-pair? v) (var? u) (has-tail? v u))
-       (let ((new-var (var nonlocal-scope)))
-         (unify (make-nonempty-set (set-head (walk* v st)) new-var)
-                u
-                st)))
+      ((and (set-pair? u) (var? v) (var-eq? v (nonempty-set-tail u))) (chasing-tail u v))
+      ((and (set-pair? v) (var? u) (var-eq? u (nonempty-set-tail v))) (chasing-tail v u))
       ((var? u) (extend u v))
       ((var? v) (extend v u))
       ((and (set-pair? u) (set-pair? v)) (unify-sets u v st))
