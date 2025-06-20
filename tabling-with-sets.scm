@@ -12,6 +12,7 @@
 
 ;; William E. Byrd
 ;; Saturday May 24, 2025
+;; Updated Friday June 20, 2025
 
 
 ;; Tabling, implemented with CLP(Set)
