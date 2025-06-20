@@ -1670,8 +1670,11 @@ Free-Disunification: (cons/c '=/= (listof Free-Goal))
            [()    #f]
            [(f)   (loop k (f))]
            [(c)   (hashtable-set! seen-values c #t)]
-           [(c f) (begin (hashtable-set! seen-values c #t)
-                         (loop (and k (sub1 k)) (f)))])))
+           [(c f) (if (hashtable-contains? seen-values c)
+                      (loop k (f))
+                      (begin
+                        (hashtable-set! seen-values c #t)
+                        (loop (and k (sub1 k)) (f))))])))
   (sort-lex (vector->list (hashtable-keys seen-values))))
 
 (define-syntax run-unique
