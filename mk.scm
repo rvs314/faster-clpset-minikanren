@@ -690,7 +690,7 @@ The scope of each RHS has access to prior binders, à la let*
    [(error 'set-compare "cannot compare non-sets" x y)]))
 
 (define (valid-seto x)
-  (if (null-set? x)
+  (if (set-null? x)
       succeed
       (seto (set-rest x))))
 
@@ -1039,11 +1039,11 @@ Free-Disunification: (cons/c '=/= (listof Free-Goal))
   (project0 (l r l+r)
     (cond
      [(equal? l r)    (== l l+r)]
-     [(set-null? l+r) (fresh ()
+     [(null-set? l+r) (fresh ()
                         (== l ∅)
                         (== r ∅))]
-     [(set-null? l)   (== r l+r)]
-     [(set-null? r)   (== l l+r)]
+     [(null-set? l)   (== r l+r)]
+     [(null-set? r)   (== l l+r)]
      [(set-pair? l+r)
       (let ([t1 (set-first l+r)]
             [t2 (set-rest l+r)])

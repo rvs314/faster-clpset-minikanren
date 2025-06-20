@@ -1,45 +1,39 @@
-(define-record-type null-set
-  (protocol
-   (lambda (new)
-     (let ([canonical (new)])
-       (lambda ()
-         canonical)))))
+;; The empty set is the vector '#(set)
+(define (set? x)
+  (and (vector? x)
+       (eq? (vector-ref x 0) 'set)))
 
-(define set-null? null-set?)
+(define (null-set? x)
+  (and (set? x)
+       (= 1 (vector-length x))))
 
-(define ∅         (make-null-set))
-(define empty-set (make-null-set))
+(define ∅         '#(set))
+(define empty-set ∅)
 
-(record-type-equal-procedure
- (record-type-descriptor null-set)
- eq?)
+;; A nonempty-set is the vector '#(set H T)
+(define (nonempty-set? x)
+  (and (set? x)
+       (eq? (vector-length x) 3)))
 
-(record-type-hash-procedure
- (record-type-descriptor null-set)
- (lambda _ 0))
+(define (nonempty-set-head obj)
+  (assert (nonempty-set? obj))
+  (vector-ref obj 1))
 
-(record-writer
- (record-type-descriptor null-set)
- (lambda (obj prt wrt)
-   (display-string "∅" prt)))
+(define (nonempty-set-tail obj)
+  (assert (nonempty-set? obj))
+  (vector-ref obj 2))
 
-(define-record-type nonempty-set
-  (fields head tail)
-  (protocol
-   (lambda (new)
-     (lambda (head tail)
-       (unless (list? head)
-         (error 'make-nonempty-set "Improper nonempty-set" head tail))
-       (cond
-        [(nonempty-set? tail)
-         (make-nonempty-set (append head (nonempty-set-head tail))
-                            (nonempty-set-tail tail))]
-        [(null? head) tail]
-        [else (new head tail)])))))
+(define (make-nonempty-set head tail)
+  (cond
+   [(null? head) tail]
+   [(nonempty-set? tail)
+    `#(set ,(append head (set-head tail)) ,(set-tail tail))]
+   [else
+    `#(set ,head ,tail)]))
 
 (define (set-head st)
   (if (nonempty-set? st)
-      (append (nonempty-set-head st) (set-head (nonempty-set-tail st)))
+      (nonempty-set-head st)
       '()))
 
 (define (set-tail st)
@@ -53,44 +47,15 @@
 (define set-pair? nonempty-set?)
 
 (define (set-first set)
-  (car (nonempty-set-head set)))
+  (car (set-head set)))
 
 (define (set-rest set)
   (make-nonempty-set
-   (cdr (nonempty-set-head set))
-   (nonempty-set-tail set)))
+   (cdr (set-head set))
+   (set-tail set)))
 
 (define (set-cons elem set)
   (make-nonempty-set (list elem) set))
-
-(define (set? obj)
-  (or (null-set? obj) (set-pair? obj)))
-
-(record-type-equal-procedure
- (record-type-descriptor nonempty-set)
- (lambda (x y =)
-   (and (= (set-head x) (set-head y))
-        (= (set-tail x) (set-tail y)))))
-
-(record-writer
- (record-type-descriptor nonempty-set)
- (lambda (obj prt wrt)
-   (display "{" prt)
-   (let loop ([head (nonempty-set-head obj)]
-              [tail (nonempty-set-tail obj)])
-     (cond
-      [(and (pair? head) (null? (cdr head)))
-       (wrt (car head) prt)
-       (unless (set-null? tail)
-         (display " | " prt)
-         (wrt tail prt))
-       (display "}" prt)]
-      [(pair? head)
-       (wrt (car head) prt)
-       (display " " prt)
-       (loop (cdr head) tail)]
-      [(not (pair? head))
-       (error 'write "Invalid set object" obj)]))))
 
 (define (set->list set)
   (cond
