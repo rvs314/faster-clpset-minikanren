@@ -43,20 +43,23 @@
      (var scope 'unnamed)]
     [(scope name)
      (*var-counter* (+ 1 (*var-counter*)))
-     (vector unbound scope (*var-counter*) name)]))
+     (vector 'var unbound scope (*var-counter*) name)]))
 
-; Vectors are not allowed as terms, so terms that are vectors
-; are variables.
-(define (var? x) (vector? x))
+;; Variables are represented as vectors tagged with an initial
+;; symbol `'var`
+(define (var? x)
+  (and (vector? x)
+       (eq? 'var (vector-ref x 0))))
 
 (define var-eq? eq?)
 
-(define (var-val x)   (vector-ref x 0))
-(define (var-scope x) (vector-ref x 1))
-(define (var-idx x)   (vector-ref x 2))
+(define (var-val x)   (vector-ref x 1))
+(define (var-scope x) (vector-ref x 2))
+(define (var-idx x)   (vector-ref x 3))
+(define (var-name x)  (vector-ref x 4))
 
 (define (set-var-val! x v)
-  (vector-set! x 0 v))
+  (vector-set! x 1 v))
 
 
 ; Substitution object.
