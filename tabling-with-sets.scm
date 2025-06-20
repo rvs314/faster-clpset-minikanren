@@ -16,6 +16,9 @@
 
 ;; Tabling, implemented with CLP(Set)
 
+;; TODO write an interpreter for a list representing `arco` edges,
+;; making it possible to synthesize the edges from known result.
+
 ;; path example (very standard) taken from section 12.4 of my dissertation
 
 (define (patho x y)
