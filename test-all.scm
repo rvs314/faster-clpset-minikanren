@@ -57,6 +57,12 @@
 (printf "test-sets\n")
 (load "test-sets.scm")
 
+(printf "occurs-free\n")
+(load "./occurs-free.scm")
+
+(printf "natural-deduction\n")
+(load "./natural-deduction.scm")
+
 ;; Test Indicator
 (begin
   (if test-failed
