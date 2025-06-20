@@ -17,10 +17,6 @@ The set $\{x, y, ...\} \cup T$ when represented as ~'#(set (x y z) T)~ if ~T~ is
 
 For the internal implementation of sets, see: [[file:sets.scm]]
 
-* Set Literals
-
-The set operations all expect and assume set objects to be in proper form. If using the procedural constructors this is guaranteed by construction, but this guarantee is not present for sets written using ~quote~. For example, the set objects ~'#(set ())~ and ~'#(set () ())~ are both "equivalent" to the empty set from a naive reading, but are not semantically equivalent WRT to the procedures documented here, nor are they ~equal?~. In general, a set is in its proper form when it has typed with the fewest possible characters.
-
 * Set Unification
 
 Set unification is unaffected by duplicates or differences in ordering.
