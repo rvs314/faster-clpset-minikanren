@@ -59,13 +59,15 @@ some non-set object which represents a "potential" set).
    [(nil-set? t) `#(set ,h)]
    [else         `#(set ,h ,t)]))
 
-(define nonempty-set? set-pair?)
-
 (define (set-pair? obj)
   (and (set? obj) (pair? (set-head obj))))
 
+(define nonempty-set? set-pair?)
+
 (define (set-null? obj)
   (and (set? obj) (null? (set-head obj))))
+
+(define null-set? set-null?)
 
 (define (set-first set)
   (car (set-head set)))
