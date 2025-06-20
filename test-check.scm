@@ -75,7 +75,7 @@
            (let-values ([(next rest) (head+tail answer-stream)])
              (if next
                  (loop rest (remove next expected-results) (add1 i))
-                 (failf "~s Failed: Did not find answers: ~s~%" expected-results)))]))))
+                 (failf "~s Failed: Did not find answers: ~s~%" name expected-results)))]))))
     ((test-unordered
       name
       (budget budget-expr)
