@@ -41,8 +41,21 @@
   '(_.0 _.0))
 
 (test "implies-debug-0"
-  (length
-   (run 3 (q)
-     (debug-deducto (set) '(implies A A) q)))
-  3)
+  (run 3 (q)
+    (debug-deducto (set) '(implies A A) q))
+  '((t-abs
+      (t-var (#(set (A)) entails A))
+      (#(set) entails (implies A A)))
+    (t-abs
+      (t-app
+        (t-abs (t-var (#(set (A)) entails A)) (#(set (A)) entails (implies A A)))
+        (t-var (#(set (A)) entails A)) (#(set (A)) entails A))
+      (#(set) entails (implies A A)))
+    ((t-app
+       (t-abs
+         (t-abs (t-var (#(set (A (implies _.0 _.0))) entails A)) (#(set ((implies _.0 _.0))) entails (implies A A)))
+         (#(set) entails (implies (implies _.0 _.0) (implies A A))))
+       (t-abs
+         (t-var (#(set (_.0)) entails _.0))
+         (#(set) entails (implies _.0 _.0))) (#(set) entails (implies A A))) (sym _.0))))
 

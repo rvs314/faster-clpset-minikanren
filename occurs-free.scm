@@ -266,19 +266,57 @@ generates duplicate answers.
      (sym _.0))))
 
 (test "occurs-freeo-free-play-1"
-  (length
-   (run 10 (expr free-vars)
-     (occurs-freeo expr free-vars)))
-  10)
+  (run 10 (expr free-vars)
+    (occurs-freeo expr free-vars))
+  '(((_.0 #(set))
+     (num _.0))
+    ((_.0 #(set (_.0)))
+     (sym _.0))
+    (((lambda (_.0) _.0) #(set))
+     (sym _.0))
+    (((cons _.0 _.1) #(set))
+     (num _.0 _.1))
+    (((_.0 _.1) #(set))
+     (num _.0 _.1))
+    (((cons _.0 _.1) #(set (_.1)))
+     (num _.0) (sym _.1))
+    (((_.0 _.1) #(set (_.1)))
+     (num _.0) (sym _.1))
+    (((cons _.0 (lambda (_.1) _.1)) #(set))
+     (num _.0) (sym _.1))
+    (((_.0 (lambda (_.1) _.1)) #(set))
+     (num _.0) (sym _.1))
+    (((cons _.0 (cons _.1 _.2)) #(set))
+     (num _.0 _.1 _.2))))
 
 (test "occurs-freeo-free-play-2"
-  (length
-   (run 10 (expr free-vars)
-     (fresh (w)
-       ;; ensure at least one variable occurs free
-       (ino w free-vars)
-       (occurs-freeo expr free-vars))))
-  10)
+  (run 10 (expr free-vars)
+    (fresh (w)
+      ;; ensure at least one variable occurs free
+      (ino w free-vars)
+      (occurs-freeo expr free-vars)))
+  '(((_.0 #(set (_.0)))
+     (sym _.0))
+    ((_.0 #(set (_.0)))
+     (sym _.0))
+    (((cons _.0 _.1) #(set (_.0)))
+     (num _.1) (sym _.0))
+    (((_.0 _.1) #(set (_.0)))
+     (num _.1) (sym _.0))
+    (((cons _.0 _.1) #(set (_.0 _.1)))
+     (=/= ((_.0 _.1)))
+     (sym _.0 _.1))
+    (((_.0 _.1) #(set (_.0 _.1)))
+     (=/= ((_.0 _.1)))
+     (sym _.0 _.1))
+    (((cons _.0 (lambda (_.1) _.1)) #(set (_.0)))
+     (sym _.0 _.1))
+    (((_.0 (lambda (_.1) _.1)) #(set (_.0)))
+     (sym _.0 _.1))
+    (((cons _.0 _.1) #(set (_.1)))
+     (num _.0) (sym _.1))
+    (((_.0 _.1) #(set (_.1)))
+     (num _.0) (sym _.1))))
 
 (test "occurs-freeo-free-play-2b"
   ;; run-unique 1000 produces an expression with duplicate args to cons:
@@ -289,4 +327,4 @@ generates duplicate answers.
        ;; ensure at least one variable occurs free
        (ino w free-vars)
        (occurs-freeo expr free-vars))))
-  9) ;; TODO: should be 10
+  10)
