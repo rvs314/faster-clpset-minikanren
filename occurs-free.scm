@@ -47,7 +47,7 @@ e ::=
     ((fresh (x e fv)
        (symbolo x)
        (== `(lambda (,x) ,e) expr)
-       (removeo fv x free-vars)      
+       (removeo fv x free-vars)
        (occurs-freeo e fv)))
     ((fresh (e1 e2 fv1 fv2)
        (== `(cons ,e1 ,e2) expr)
@@ -60,34 +60,87 @@ e ::=
        (occurs-freeo e1 fv1)
        (occurs-freeo e2 fv2)))))
 
-#|
-;; This version is correct, I believe, but overly complicated, and
-generates duplicate answers.
 
-(define (occurs-freeo expr free-vars)
+(define (occurs-boundo expr bound-vars)
+  (occurs-bound-auxo expr (set) bound-vars))
+
+(define (occurs-bound-auxo expr lambda-vars bound-vars)
   (conde
-    ((numbero expr) (== (set) free-vars))
-    ((symbolo expr) (== (set expr) free-vars))
-    ((fresh (x e fv)
+    ((numbero expr) (== (set) bound-vars))
+    ((symbolo expr)
+     (conde
+       ((!ino expr lambda-vars) (== (set) bound-vars))
+       ((ino expr lambda-vars)  (== (set expr) bound-vars))))
+    ((fresh (x e)
        (symbolo x)
        (== `(lambda (,x) ,e) expr)
-       ;; No reason for this case analysis, I think.
-       ;; Just (removeo fv x free-vars), which handles both cases.
-       (conde
-         ((!ino x fv) (== fv free-vars))
-         ((ino x fv) (removeo fv x free-vars)))
-       (occurs-freeo e fv)))
-    ((fresh (e1 e2 fv1 fv2)
+       (occurs-bound-auxo e (set-cons x lambda-vars) bound-vars)))
+    ((fresh (e1 e2 bv1 bv2)
        (== `(cons ,e1 ,e2) expr)
-       (uniono fv1 fv2 free-vars)
-       (occurs-freeo e1 fv1)
-       (occurs-freeo e2 fv2)))
-    ((fresh (e1 e2 fv1 fv2)
+       (uniono bv1 bv2 bound-vars)
+       (occurs-bound-auxo e1 lambda-vars bv1)
+       (occurs-bound-auxo e2 lambda-vars bv2)))
+    ((fresh (e1 e2 bv1 bv2)
        (== `(,e1 ,e2) expr)
-       (uniono fv1 fv2 free-vars)
-       (occurs-freeo e1 fv1)
-       (occurs-freeo e2 fv2)))))
-|#
+       (uniono bv1 bv2 bound-vars)
+       (occurs-bound-auxo e1 lambda-vars bv1)
+       (occurs-bound-auxo e2 lambda-vars bv2)))))
+
+(test "occurs-freeo/boundo-0"
+  (run 5 (expr)
+    (occurs-freeo expr (set 'y))
+    (occurs-boundo expr (set 'z)))
+  '((cons y (lambda (z) z))
+    (y (lambda (z) z))
+    (lambda (z) (cons z y))
+    (lambda (z) (z y))
+    ((cons y (cons _.0 (lambda (z) z)))
+     (num _.0))))
+
+(test "occurs-freeo/boundo-1"
+  (run 5 (x expr)
+    (occurs-freeo expr (set x))
+    (occurs-boundo expr (set x)))
+  '(((_.0 (cons _.0 (lambda (_.0) _.0)))
+     (sym _.0))
+    ((_.0 (_.0 (lambda (_.0) _.0)))
+     (sym _.0))
+    ((_.0 (cons _.0 (cons _.1 (lambda (_.0) _.0))))
+     (num _.1)
+     (sym _.0))
+    ((_.0 (_.0 (cons _.1 (lambda (_.0) _.0))))
+     (num _.1)
+     (sym _.0))
+    ((_.0 (cons _.0 (_.1 (lambda (_.0) _.0))))
+     (num _.1)
+     (sym _.0))))
+
+(test "occurs-freeo/boundo-0"
+  (run 5 (expr)
+    (occurs-freeo expr (set 'y 'z))
+    (occurs-boundo expr (set 'w 'z)))
+  '((cons y (cons z (cons (lambda (w) w) (lambda (z) z))))
+    (cons y (cons z (cons (lambda (z) z) (lambda (w) w))))
+    (y (cons z (cons (lambda (w) w) (lambda (z) z))))
+    (y (cons z (cons (lambda (z) z) (lambda (w) w))))
+    (cons y (z (cons (lambda (w) w) (lambda (z) z))))))
+
+(test "occurs-boundo-2"
+  (run* (q)
+    (occurs-boundo '(cons (cons 3 5) (cons 42 7)) q))
+  (list (set)))
+
+(test "occurs-boundo-1"
+  (run* (q)
+    (occurs-boundo '(lambda (y) (cons y z)) q))
+  '(#(set (y))))
+
+(test "occurs-boundo-2"
+  (run* (q)
+    (occurs-boundo '(lambda (y) (cons (lambda (y) (lambda (z) (cons y z))) z)) q))
+  '(#(set (y z)) #(set (y z))))
+
+
 
 (test "occurs-freeo-0"
   (run* (q)
