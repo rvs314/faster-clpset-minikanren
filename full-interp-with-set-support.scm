@@ -589,6 +589,88 @@
      (sym _.0 _.1))
     (cons w (cons z z))))
 
+(test "occurs-free-set-version-3"
+  (time (run 1 (q)
+          (evalo `(letrec ((occurs-free
+                            (lambda (expr)
+                              (match expr
+                                ((? symbol? x)
+                                 (set-cons x ,q))
+                                (`(lambda (,x) ,e)
+                                 (set-remove (occurs-free e) x))                          
+                                (`(cons ,e1 ,e2)
+                                 (set-union (occurs-free e1) (occurs-free e2)))))))
+                    (occurs-free '(cons w (lambda (y) (cons y z)))))
+                 (set 'w 'z))))
+  '(empty-set))
+
+(test "occurs-free-set-version-4"
+  (time (run 1 (q)
+          (evalo `(letrec ((occurs-free
+                            (lambda (expr)
+                              (match expr
+                                ((? symbol? x)
+                                 (,q x empty-set))
+                                (`(lambda (,x) ,e)
+                                 (set-remove (occurs-free e) x))                          
+                                (`(cons ,e1 ,e2)
+                                 (set-union (occurs-free e1) (occurs-free e2)))))))
+                    (occurs-free '(cons w (lambda (y) (cons y z)))))
+                 (set 'w 'z))))
+  '(set-cons))
+
+(test "occurs-free-set-version-5a"
+  ;; under-specification, we meet again!
+  (time (run 1 (q)
+          (evalo `(letrec ((occurs-free
+                            (lambda (expr)
+                              (match expr
+                                ((? symbol? x)
+                                 (set-cons x empty-set))
+                                (`(lambda (,x) ,e)
+                                 (,q (occurs-free e) x))                          
+                                (`(cons ,e1 ,e2)
+                                 (set-union (occurs-free e1) (occurs-free e2)))))))
+                    (occurs-free '(cons w (lambda (y) (cons y z)))))
+                 (set 'w 'z))))
+  '(((lambda _.0 '#(set (z)))
+     (=/= ((_.0 quote)))
+     (sym _.0))))
+
+(test "occurs-free-set-version-5b"
+  (time (run 1 (q)
+          (evalo `(letrec ((occurs-free
+                            (lambda (expr)
+                              (match expr
+                                ((? symbol? x)
+                                 (set-cons x empty-set))
+                                (`(lambda (,x) ,e)
+                                 (,q (occurs-free e) x))                          
+                                (`(cons ,e1 ,e2)
+                                 (set-union (occurs-free e1) (occurs-free e2)))))))
+                    (list (occurs-free '(lambda (c) (cons a c)))
+                          (occurs-free '(cons w (lambda (y) (cons y z))))))
+                 (list (set 'a) (set 'w 'z)))))
+  '(set-remove))
+
+(test "occurs-free-set-version-5c"
+  ;; swap the elements of the set containing 'w and 'z
+  ;; no problem!
+  (time (run 1 (q)
+          (evalo `(letrec ((occurs-free
+                            (lambda (expr)
+                              (match expr
+                                ((? symbol? x)
+                                 (set-cons x empty-set))
+                                (`(lambda (,x) ,e)
+                                 (,q (occurs-free e) x))                          
+                                (`(cons ,e1 ,e2)
+                                 (set-union (occurs-free e1) (occurs-free e2)))))))
+                    (list (occurs-free '(lambda (c) (cons a c)))
+                          (occurs-free '(cons w (lambda (y) (cons y z))))))
+                 (list (set 'a) (set 'z 'w)))))
+  '(set-remove))
+
 (test "sets-equal?-5e"
   (run* (q)
     (evalo '(equal? (set-cons 3 (set-cons 4 empty-set))
