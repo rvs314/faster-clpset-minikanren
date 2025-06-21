@@ -463,6 +463,9 @@
           (quasi-p-no-match d v2 penv^ penv-out)))))))
 
 
+
+;; List version of occurs-free
+
 (test "occurs-free-list-version-1"
   (time
    (run* (q)
@@ -534,21 +537,6 @@
       (closure _.1)
       (prim _.0)
       (prim _.1)))))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 (test "occurs-free-list-version-5a"
   ;; under-specification, we meet again!
@@ -645,13 +633,7 @@
 |#
 
 
-
-
-
-
-
-
-
+;; Set version of occurs-free
 
 ;; Nice example of the expressive power of set constraints, compared
 ;; with the list-based version above.  For a truly fair comparison,
@@ -782,6 +764,10 @@
 (test "occurs-free-set-version-5c"
   ;; swap the elements of the set containing 'w and 'z
   ;; no problem!
+  ;; compare with "occurs-free-list-version-5c",
+  ;;   where swapping the order of 'w in 'z in a list
+  ;;   changes the running time from 200 ms to...who knows.
+  ;;   I stopped the query after a couple of minutes.
   (time (run 1 (q)
           (evalo `(letrec ((occurs-free
                             (lambda (expr)
