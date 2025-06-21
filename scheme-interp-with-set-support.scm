@@ -14,9 +14,15 @@
 ;; Saturday May 24, 2025
 ;; Updated Friday June 20, 2025
 
-
 ;; Scheme interpreter with built-in support for sets and set
 ;; operations, implemented with CLP(Set)
+
+;; ? Do I need to explictly tag set values ?
+;; ? Do I need to worry about quoted sets ?
+;; ? How best to implement `set?` and other type predicates ?
+
+;; TODO:
+;; * add additional set operations
 
 (define (evalo expr val)
   (expr-evalo expr `((empty-set . ,(set))) val))
