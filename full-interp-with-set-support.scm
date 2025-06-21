@@ -20,8 +20,11 @@
 ;; recursive Scheme functions (as opposed to miniKanren relations, as
 ;; in `occurs-free.scm`).
 ;;
-;; The interpreter's initial environment includes `set-cons` and the
-;; `empty-set`.
+;; The interpreter's initial environment includes `set-cons`,
+;; `set-union`, `set-remove`, and the `empty-set`.
+;;
+;; * Beware the argument order to `set-remove`: as with `removeo`, the
+;; set comes first, then the element to be removed!  Annoying...
 ;;
 ;; ? Do I need to explictly tag set values ?
 ;; ? Do I need to worry about quoted sets ?
@@ -30,7 +33,6 @@
 ;; TODO:
 ;; * add additional set operations
 ;; * extend `match` to handle sets.  Not sure how much work that would be.
-
 
 ;; The definition of 'letrec' is based based on Dan Friedman's code,
 ;; using the "half-closure" approach from Reynold's definitional
@@ -167,6 +169,14 @@
      (fresh (a d)
        (== `(,a ,d) a*)
        (== (set-cons a d) val))]
+    [(== prim-id 'set-remove)
+     (fresh (a d)
+       (== `(,a ,d) a*)
+       (removeo a d val))]
+    [(== prim-id 'set-union)
+     (fresh (a d)
+       (== `(,a ,d) a*)
+       (uniono a d val))]
     ;;
     [(== prim-id 'car)
      (fresh (d)
@@ -277,6 +287,8 @@
                       (symbol? . (val . (prim . symbol?)))
                       (cons . (val . (prim . cons)))
                       (set-cons . (val . (prim . set-cons))) ;; set related
+                      (set-remove . (val . (prim . set-remove))) ;; set related
+                      (set-union . (val . (prim . set-union))) ;; set related                      
                       (null? . (val . (prim . null?)))
                       (car . (val . (prim . car)))
                       (cdr . (val . (prim . cdr)))
@@ -450,6 +462,132 @@
          ((quasi-p-match a v1 penv penv^)
           (quasi-p-no-match d v2 penv^ penv-out)))))))
 
+
+(test "occurs-free-list-version-1"
+  (time
+   (run* (q)
+     (evalo `(letrec ((remove
+                       (lambda (x l)
+                         (if (null? l)
+                             '()
+                             (if (equal? (car l) x)
+                                 (cdr l)
+                                 (cons (car l) (remove x (cdr l))))))))
+               (letrec ((append
+                         (lambda (l s)
+                           (if (null? l)
+                               s
+                               (cons (car l) (append (cdr l) s))))))
+                 (letrec ((occurs-free
+                           (lambda (expr)
+                             (match expr
+                               ((? symbol? x)
+                                (cons x '()))
+                               (`(lambda (,x) ,e)
+                                (remove x (occurs-free e)))
+                               (`(cons ,e1 ,e2)
+                                (append (occurs-free e1) (occurs-free e2)))))))
+                   (occurs-free '(cons w (lambda (y) (cons y z)))))))
+            q)))
+  '((w z)))
+
+(test "occurs-free-list-version-2"
+  (time
+   (run 5 (expr)
+     (evalo `(letrec ((remove
+                       (lambda (x l)
+                         (if (null? l)
+                             '()
+                             (if (equal? (car l) x)
+                                 (cdr l)
+                                 (cons (car l) (remove x (cdr l))))))))
+               (letrec ((append
+                         (lambda (l s)
+                           (if (null? l)
+                               s
+                               (cons (car l) (append (cdr l) s))))))
+                 (letrec ((occurs-free
+                           (lambda (expr)
+                             (match expr
+                               ((? symbol? x)
+                                (cons x '()))
+                               (`(lambda (,x) ,e)
+                                (remove x (occurs-free e)))
+                               (`(cons ,e1 ,e2)
+                                (append (occurs-free e1) (occurs-free e2)))))))
+                   (occurs-free ',expr))))
+            (list 'w 'z))))
+  '((cons w z)
+    ((lambda (_.0) (cons w z))
+     (=/= ((_.0 w)) ((_.0 z)))
+     (absento (closure _.0) (prim _.0)))
+    ((cons w (lambda (_.0) z))
+     (=/= ((_.0 z)))
+     (absento (closure _.0) (prim _.0)))
+    ((cons (lambda (_.0) w) z)
+     (=/= ((_.0 w)))
+     (absento (closure _.0) (prim _.0)))
+    ((lambda (_.0) (lambda (_.1) (cons w z)))
+     (=/= ((_.0 w)) ((_.0 z)) ((_.1 w)) ((_.1 z)))
+     (absento
+      (closure _.0)
+      (closure _.1)
+      (prim _.0)
+      (prim _.1)))))
+
+;; Nice example of the expressive power of set constraints, compared
+;; with the list-based version above.  For a truly fair comparison,
+;; would need to compare against an evaliator in which the set
+;; operations are built-in, in the form of list operations.
+;;
+;; In these simple experiments, at least, the list version seems
+;; faster than the set version.  Staging should make the list version
+;; faster still.  What is the advantage of the set version, other than
+;; abstraction?  Abstraction in specifying the answer, I think.  An
+;; advantage in abstraction for reasoning at the level of
+;; specification.
+(test "occurs-free-set-version-1"
+  (time (run* (q)
+          (evalo `(letrec ((occurs-free
+                            (lambda (expr)
+                              (match expr
+                                ((? symbol? x)
+                                 (set-cons x empty-set))
+                                (`(lambda (,x) ,e)
+                                 (set-remove (occurs-free e) x))                          
+                                (`(cons ,e1 ,e2)
+                                 (set-union (occurs-free e1) (occurs-free e2)))))))
+                    (occurs-free '(cons w (lambda (y) (cons y z)))))
+                 q)))
+  '(#(set (w z))))
+
+(test "occurs-free-set-version-2"
+  (time (run 5 (expr)
+          (evalo `(letrec ((occurs-free
+                            (lambda (expr)
+                              (match expr
+                                ((? symbol? x)
+                                 (set-cons x empty-set))
+                                (`(lambda (,x) ,e)
+                                 (set-remove (occurs-free e) x))                          
+                                (`(cons ,e1 ,e2)
+                                 (set-union (occurs-free e1) (occurs-free e2)))))))
+                    (occurs-free ',expr))
+                 (set 'w 'z))))
+  '((cons w z)
+    (cons z w)
+    ((cons (cons w z) (lambda (_.0) _.0))
+     (=/= ((_.0 closure)) ((_.0 prim)))
+     (sym _.0))
+    ((cons
+       (cons w z)
+       (cons (lambda (_.0) _.0) (lambda (_.1) _.1)))
+     (=/= ((_.0 closure))
+          ((_.0 prim))
+          ((_.1 closure))
+          ((_.1 prim)))
+     (sym _.0 _.1))
+    (cons w (cons z z))))
 
 (test "sets-equal?-5e"
   (run* (q)
