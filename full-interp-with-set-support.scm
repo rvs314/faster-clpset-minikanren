@@ -535,6 +535,124 @@
       (prim _.0)
       (prim _.1)))))
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+(test "occurs-free-list-version-5a"
+  ;; under-specification, we meet again!
+  (time
+   (run 1 (q)     
+     (evalo `(letrec ((remove
+                       (lambda (x l)
+                         (if (null? l)
+                             '()
+                             (if (equal? (car l) x)
+                                 (cdr l)
+                                 (cons (car l) (remove x (cdr l))))))))
+               (letrec ((append
+                         (lambda (l s)
+                           (if (null? l)
+                               s
+                               (cons (car l) (append (cdr l) s))))))
+                 (letrec ((occurs-free
+                           (lambda (expr)
+                             (match expr
+                               ((? symbol? x)
+                                (cons x '()))
+                               (`(lambda (,x) ,e)
+                                (,q x (occurs-free e)))
+                               (`(cons ,e1 ,e2)
+                                (append (occurs-free e1) (occurs-free e2)))))))
+                   (occurs-free '(cons w (lambda (y) (cons y z)))))))
+            (list 'w 'z))))
+  '(((lambda _.0 '(z)) (=/= ((_.0 quote))) (sym _.0))))
+
+(test "occurs-free-list-version-5b"
+  (time
+   (run 1 (q)     
+     (evalo `(letrec ((remove
+                       (lambda (x l)
+                         (if (null? l)
+                             '()
+                             (if (equal? (car l) x)
+                                 (cdr l)
+                                 (cons (car l) (remove x (cdr l))))))))
+               (letrec ((append
+                         (lambda (l s)
+                           (if (null? l)
+                               s
+                               (cons (car l) (append (cdr l) s))))))
+                 (letrec ((occurs-free
+                           (lambda (expr)
+                             (match expr
+                               ((? symbol? x)
+                                (cons x '()))
+                               (`(lambda (,x) ,e)
+                                (,q x (occurs-free e)))
+                               (`(cons ,e1 ,e2)
+                                (append (occurs-free e1) (occurs-free e2)))))))
+                   (list (occurs-free '(lambda (c) (cons a c)))
+                         (occurs-free '(cons w (lambda (y) (cons y z))))))))
+            (list (list 'a) (list 'w 'z)))))
+  '(remove))
+
+#|
+;; This version doesn't come back after a minute or two.
+;; This example nicely shows the advange of set constraints
+;; rather than using lists at the user level to represent sets.
+
+(test "occurs-free-list-version-5c"
+  ;; swap the elements of the list containing 'w and 'z
+  (time
+   (run 1 (q)     
+     (evalo `(letrec ((remove
+                       (lambda (x l)
+                         (if (null? l)
+                             '()
+                             (if (equal? (car l) x)
+                                 (cdr l)
+                                 (cons (car l) (remove x (cdr l))))))))
+               (letrec ((append
+                         (lambda (l s)
+                           (if (null? l)
+                               s
+                               (cons (car l) (append (cdr l) s))))))
+                 (letrec ((occurs-free
+                           (lambda (expr)
+                             (match expr
+                               ((? symbol? x)
+                                (cons x '()))
+                               (`(lambda (,x) ,e)
+                                (,q x (occurs-free e)))
+                               (`(cons ,e1 ,e2)
+                                (append (occurs-free e1) (occurs-free e2)))))))
+                   (list (occurs-free '(lambda (c) (cons a c)))
+                         (occurs-free '(cons w (lambda (y) (cons y z))))))))
+            (list (list 'a) (list 'z 'w)))))
+  '(remove))
+|#
+
+
+
+
+
+
+
+
+
+
 ;; Nice example of the expressive power of set constraints, compared
 ;; with the list-based version above.  For a truly fair comparison,
 ;; would need to compare against an evaliator in which the set
@@ -546,6 +664,14 @@
 ;; abstraction?  Abstraction in specifying the answer, I think.  An
 ;; advantage in abstraction for reasoning at the level of
 ;; specification.
+;;
+;; Ah!  Found a clear example.  Compare "occurs-free-list-version-5c"
+;; versus "occurs-free-set-version-5c".  When synthesizing part of the
+;; definition of occurs-free, reordering the elements in a returned
+;; set doesn't have a noticable impact on the set version.  Reorder
+;; the elements in a returned list, though, and the query doesn't come
+;; back after minutes, when with the original ordering it succeeded in
+;; 200 milliseconds.
 (test "occurs-free-set-version-1"
   (time (run* (q)
           (evalo `(letrec ((occurs-free
@@ -554,7 +680,7 @@
                                 ((? symbol? x)
                                  (set-cons x empty-set))
                                 (`(lambda (,x) ,e)
-                                 (set-remove (occurs-free e) x))                          
+                                 (set-remove (occurs-free e) x))
                                 (`(cons ,e1 ,e2)
                                  (set-union (occurs-free e1) (occurs-free e2)))))))
                     (occurs-free '(cons w (lambda (y) (cons y z)))))
@@ -569,7 +695,7 @@
                                 ((? symbol? x)
                                  (set-cons x empty-set))
                                 (`(lambda (,x) ,e)
-                                 (set-remove (occurs-free e) x))                          
+                                 (set-remove (occurs-free e) x))
                                 (`(cons ,e1 ,e2)
                                  (set-union (occurs-free e1) (occurs-free e2)))))))
                     (occurs-free ',expr))
@@ -597,7 +723,7 @@
                                 ((? symbol? x)
                                  (set-cons x ,q))
                                 (`(lambda (,x) ,e)
-                                 (set-remove (occurs-free e) x))                          
+                                 (set-remove (occurs-free e) x))
                                 (`(cons ,e1 ,e2)
                                  (set-union (occurs-free e1) (occurs-free e2)))))))
                     (occurs-free '(cons w (lambda (y) (cons y z)))))
@@ -612,7 +738,7 @@
                                 ((? symbol? x)
                                  (,q x empty-set))
                                 (`(lambda (,x) ,e)
-                                 (set-remove (occurs-free e) x))                          
+                                 (set-remove (occurs-free e) x))
                                 (`(cons ,e1 ,e2)
                                  (set-union (occurs-free e1) (occurs-free e2)))))))
                     (occurs-free '(cons w (lambda (y) (cons y z)))))
@@ -628,7 +754,7 @@
                                 ((? symbol? x)
                                  (set-cons x empty-set))
                                 (`(lambda (,x) ,e)
-                                 (,q (occurs-free e) x))                          
+                                 (,q (occurs-free e) x))
                                 (`(cons ,e1 ,e2)
                                  (set-union (occurs-free e1) (occurs-free e2)))))))
                     (occurs-free '(cons w (lambda (y) (cons y z)))))
@@ -645,7 +771,7 @@
                                 ((? symbol? x)
                                  (set-cons x empty-set))
                                 (`(lambda (,x) ,e)
-                                 (,q (occurs-free e) x))                          
+                                 (,q (occurs-free e) x))
                                 (`(cons ,e1 ,e2)
                                  (set-union (occurs-free e1) (occurs-free e2)))))))
                     (list (occurs-free '(lambda (c) (cons a c)))
@@ -663,7 +789,7 @@
                                 ((? symbol? x)
                                  (set-cons x empty-set))
                                 (`(lambda (,x) ,e)
-                                 (,q (occurs-free e) x))                          
+                                 (,q (occurs-free e) x))
                                 (`(cons ,e1 ,e2)
                                  (set-union (occurs-free e1) (occurs-free e2)))))))
                     (list (occurs-free '(lambda (c) (cons a c)))
