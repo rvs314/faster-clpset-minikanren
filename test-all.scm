@@ -63,6 +63,15 @@
 (printf "natural-deduction\n")
 (load "./natural-deduction.scm")
 
+(printf "scheme-interp-with-set-support\n")
+(load "./scheme-interp-with-set-support.scm")
+
+(printf "full-interp-with-set-support\n")
+(load "./full-interp-with-set-support.scm")
+
+(printf "tabling-with-sets\n")
+(load "./tabling-with-sets.scm")
+
 ;; Test Indicator
 (begin
   (if test-failed
