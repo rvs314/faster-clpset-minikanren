@@ -617,7 +617,7 @@ The scope of each RHS has access to prior binders, à la let*
 ; 2. Each type must have infinitely many possible values to avoid
 ;      incorrectness in combination with disequality constraints,
 ;      like: (fresh (x) (booleano x) (=/= x #t) (=/= x #f))
-; 3. Types must be disjoint from each other and from pairs.
+; 3. Types must be disjoint from each other
 
 ; Predicate: Any -> (or #f Any)
 ; CompareResult: (or '< '> '=)
@@ -677,28 +677,43 @@ The scope of each RHS has access to prior binders, à la let*
 (define (string-compare a b) (cond ((string=? a b) '=) ((string<? a b) '<) (else '>)))
 (define (symbol-compare a b) (string-compare (symbol->string a) (symbol->string b)))
 
-(define (set-compare x y)
-  (cond
-   [(and (set-null? x) (set-null? y)) '=]
-   [(and (set-null? x) (set-pair? y)) '<]
-   [(and (set-pair? x) (set-null? y)) '>]
-   [(and (set-pair? x) (set-pair? y))
-    (let ((r (lex-compare (set-first x) (set-first y))))
-      (if (eq? r '=)
-          (lex-compare (set-rest x) (set-rest y))
-          r))]
-   [(error 'set-compare "cannot compare non-sets" x y)]))
+(define (listlike-constraint rec null? pair? first rest)
+  (values
+   (lambda (x y)
+     (cond
+      [(and (null? x) (null? y)) '=]
+      [(and (null? x) (pair? y)) '<]
+      [(and (pair? x) (null? y)) '>]
+      [(and (pair? x) (pair? y))
+       (let ((r (lex-compare (first x) (first y))))
+         (if (eq? r '=)
+             (lex-compare (rest x) (rest y))
+             r))]
+      [(error 'listlike-compare "cannot compare objects of differing types" x y)]))
+   (lambda (x)
+     (cond
+      [(null? x) succeed]
+      [(pair? x) (rec (rest x))]
+      [else      fail]))))
 
-(define (valid-seto x)
-  (if (set-null? x)
-      succeed
-      (seto (set-rest x))))
+(define-syntax late-bound
+  (syntax-rules ()
+    [(late-bound fn)
+     (lambda as (apply fn as))]))
+
+(define-values (set-compare valid-seto)
+  (listlike-constraint (late-bound seto)  set-null? set-pair? set-first set-rest))
+(define-values (list-compare valid-listo)
+  (listlike-constraint (late-bound listo) null?     pair?     car       cdr))
+
+(define pair-or-null? (disjoin pair? null?))
 
 (declare-type-constraints type-constraints
-  (numbero number? num number-compare)
-  (stringo string? str string-compare)
-  (symbolo symbol? sym symbol-compare)
-  (seto    set?    set set-compare    valid-seto))
+  (numbero number?       num number-compare)
+  (stringo string?       str string-compare)
+  (symbolo symbol?       sym symbol-compare)
+  (listo   pair-or-null? lst list-compare   valid-listo)
+  (seto    set?          set set-compare    valid-seto))
 
 ;; Var, (Listof Association) -> Goal
 ;; Add the primitive constraint that at least one of the associations doesn't hold
@@ -737,7 +752,6 @@ The scope of each RHS has access to prior binders, à la let*
       (string? obj)
       (number? obj)))
 
-
 ;; (Listof Association) -> Goal
 (define (=/=* S+)
   (=/= (map lhs S+) (map rhs S+)))
@@ -750,7 +764,6 @@ we do need to generate a genuine goal and therefore use more typical notions of
 disjunction. In order to rectify this, we use a partially free structure which includes
 both a number of first-order goals constructors and a higher-order goal constructors,
 to which we fall back in the more general case.
-
 
 Free-Goal: (U Higher-Order-Goal  Free-Disjunction Free-Conjunction Free-Disunification)
 Higher-Order-Goal: (cons/c 'goal Goal)
@@ -1610,14 +1623,7 @@ Free-Disunification: (cons/c '=/= (listof Free-Goal))
          type-constraints)
     `(; booleans
       (,(lambda (v) (eq? v #f)) . ,(lambda (x y) '=))
-      (,(lambda (v) (eq? v #t)) . ,(lambda (x y) '=))
-      ; lists
-      (,null? . ,(lambda (x y) '=))
-      (,pair? . ,(lambda (x y)
-                   (let ((r (lex-compare (car x) (car y))))
-                     (if (eq? r '=)
-                       (lex-compare (cdr x) (cdr y))
-                       r)))))))
+      (,(lambda (v) (eq? v #t)) . ,(lambda (x y) '=)))))
 
 (define (index+element-where l pred)
   (let loop ((l l)
@@ -1634,7 +1640,7 @@ Free-Disunification: (cons/c '=/= (listof Free-Goal))
       (errorf 'type-index "missing ordering for type of value ~s" v))))
 
 ; (Term, Term) -> (or CompareResult error)
-; defined when arguments are pairs, null, or types addressed by type-constraints;
+; defined when arguments are types addressed by type-constraints;
 ; see type-orderings.
 (define (lex-compare x y)
   (let-values (((x-o-idx x-o) (type-ordering x))

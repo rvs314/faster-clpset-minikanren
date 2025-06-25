@@ -72,6 +72,9 @@
 (printf "tabling-with-sets\n")
 (load "./tabling-with-sets.scm")
 
+(printf "seto-listo-tests.scm\n")
+(load "./seto-listo-tests.scm")
+
 ;; Test Indicator
 (begin
   (if test-failed
