@@ -1,4 +1,4 @@
-* Dict API
+#+title: Dict API
 
 We would like at least the following to be defined:
 - The constant ~empty-dict~
@@ -21,7 +21,7 @@ There are two semantics which make immediate sense:
 | Intuitive Semantics | Better error handling            |
 |                     | Better control of implementation |
 
-** Set semantics
+* Set semantics
 
 If we used a set semantics, we would likely get a few things for free:
 - literals
@@ -34,15 +34,18 @@ If we used a set semantics, we would likely get a few things for free:
 This would also require another choice: do we want to eagerly enforce the domain constraints?
 For example: does ~(lookupo (set (cons 1 2) (cons 1 3)) 1 K)~ ever hold?
 
-*** Lazy Domain Constraints
+** Lazy Domain Constraints
 
 ~(lookupo (set (cons 1 2) (cons 1 3)) K)~ would hold with ~K = 2~.
 
-If we didn't, we could get a more efficient implementation (we wouldn't have to walk the structure many times), but would likely have to implement custom logic for unification.
+If we didn't, we could get a more efficient implementation (we wouldn't have to walk the structure many times), but would likely have to implement custom logic for unification. It also violates the soundness of unification in general.
 
-*** Eager Domain Constraints
+** Eager Domain Constraints
 
-If we did, we would also get unification for free. The problem is that keeping this constraint in place is /very/ expensive
+If we did, we would also get unification for free. The problem is that keeping this constraint in place is /very/ expensive. For example: there are 21,147 ways to populate a 9-key dictionary.
 
+* List semantics
+
+Alternatively, what if we model dictionaries as lists? In theory, all we'd really need would be a freshness constraint: ~assoco~ is just ~cons~. The problem with this is that unification would break. Maybe this is a valuable minimum viable product?
 
 #  LocalWords:  reifier
