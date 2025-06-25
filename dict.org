@@ -1,0 +1,48 @@
+* Dict API
+
+We would like at least the following to be defined:
+- The constant ~empty-dict~
+- The constraint ~(assoco key value in-dict out-dict)~
+- The constraint ~(lookupo dict key value)~
+- The constraint ~(fresho dict key)~
+- An ~occurs-check~ case
+- An ~absento~ case
+- Reifier logic
+- (maybe) a unification case
+- (maybe) a disunification case
+
+There are two semantics which make immediate sense:
+- Dictionaries are distinct from sets
+- Dictionaries are sets of pairs with valid domain constraint (no pairs with the same ~car~)
+
+| Set Semantics       | Distinct Semantics               |
+|---------------------+----------------------------------|
+| Reuse Code          | Faster                           |
+| Intuitive Semantics | Better error handling            |
+|                     | Better control of implementation |
+
+** Set semantics
+
+If we used a set semantics, we would likely get a few things for free:
+- literals
+- reifier logic
+- ~absento~
+- ~occurs-check~
+- ~lookupo~ in user-space
+- ~assoco~ in user-space
+
+This would also require another choice: do we want to eagerly enforce the domain constraints?
+For example: does ~(lookupo (set (cons 1 2) (cons 1 3)) 1 K)~ ever hold?
+
+*** Lazy Domain Constraints
+
+~(lookupo (set (cons 1 2) (cons 1 3)) K)~ would hold with ~K = 2~.
+
+If we didn't, we could get a more efficient implementation (we wouldn't have to walk the structure many times), but would likely have to implement custom logic for unification.
+
+*** Eager Domain Constraints
+
+If we did, we would also get unification for free. The problem is that keeping this constraint in place is /very/ expensive
+
+
+#  LocalWords:  reifier
