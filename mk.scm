@@ -147,8 +147,13 @@
 ;       If a list, then it implies `listo`, and ensures that
 ;       the list is an association list (list of pairs)
 ;       and that no element of the constraint appears on the lhs of any pair
+;   L - list of associations in an alist or #f.
+;       If #f, is a noop.
+;       If it is a list, it implies `listo`, and ensures that
+;       the list is an association list (list of pairs)
+;       and that the association list maps the given association
 
-(define empty-c '(#f () () () () () #f))
+(define empty-c '(#f () () () () () #f #f))
 
 (define (c-T c) (car c))
 (define (c-D c) (cadr c))
@@ -157,14 +162,16 @@
 (define (c-E c) (car (cddddr c)))
 (define (c-U c) (cadr (cddddr c)))
 (define (c-F c) (caddr (cddddr c)))
+(define (c-L c) (cadddr (cddddr c)))
 
-(define (c-with-T c T) (list T (c-D c) (c-B c) (c-M c) (c-E c) (c-U c) (c-F c)))
-(define (c-with-D c D) (list (c-T c) D (c-B c) (c-M c) (c-E c) (c-U c) (c-F c)))
-(define (c-with-B c B) (list (c-T c) (c-D c) B (c-M c) (c-E c) (c-U c) (c-F c)))
-(define (c-with-M c M) (list (c-T c) (c-D c) (c-B c) M (c-E c) (c-U c) (c-F c)))
-(define (c-with-E c E) (list (c-T c) (c-D c) (c-B c) (c-M c) E (c-U c) (c-F c)))
-(define (c-with-U c U) (list (c-T c) (c-D c) (c-B c) (c-M c) (c-E c) U (c-F c)))
-(define (c-with-F c F) (list (c-T c) (c-D c) (c-B c) (c-M c) (c-E c) (c-U c) F))
+(define (c-with-T c T) (list T (c-D c) (c-B c) (c-M c) (c-E c) (c-U c) (c-F c) (c-L c)))
+(define (c-with-D c D) (list (c-T c) D (c-B c) (c-M c) (c-E c) (c-U c) (c-F c) (c-L c)))
+(define (c-with-B c B) (list (c-T c) (c-D c) B (c-M c) (c-E c) (c-U c) (c-F c) (c-L c)))
+(define (c-with-M c M) (list (c-T c) (c-D c) (c-B c) M (c-E c) (c-U c) (c-F c) (c-L c)))
+(define (c-with-E c E) (list (c-T c) (c-D c) (c-B c) (c-M c) E (c-U c) (c-F c) (c-L c)))
+(define (c-with-U c U) (list (c-T c) (c-D c) (c-B c) (c-M c) (c-E c) U (c-F c) (c-L c)))
+(define (c-with-F c F) (list (c-T c) (c-D c) (c-B c) (c-M c) (c-E c) (c-U c) F (c-L c)))
+(define (c-with-L c L) (list (c-T c) (c-D c) (c-B c) (c-M c) (c-E c) (c-U c) (c-F c) L))
 
 ; Constraint store object.
 ; Mapping of representative variable to constraint record. Constraints
@@ -341,11 +348,18 @@ The scope of each RHS has access to prior binders, à la let*
     [(k j)    (lambda (st) (bind* st k j))]
     [(k . ks) (fold-left conj k ks)]))
 
-(define (log . val)
-  (lambda (st)
-    (display ((reify val) st))
-    (newline)
-    (succeed st)))
+(define-syntax log
+  (syntax-rules (:no-reifier)
+    [(log :no-reifier expr ...)
+     (lambda (st)
+       (display (list (list 'expr '=> expr) ...))
+       (newline)
+       (succeed st))]
+    [(log expr ...)
+     (lambda (st)
+       (display (list (list 'expr '=> ((reify expr) st)) ...))
+       (newline)
+       (succeed st))]))
 
 (define-syntax toplevel-query
   (syntax-rules ()
@@ -1032,12 +1046,16 @@ Free-Disunification: (cons/c '=/= (listof Free-Goal))
             (sub-absento term1 (set-rest term2)))]
      [(var? term2)
       (lambda (st)
-        (let* ((c (lookup-c st term2))
-               (B (c-B c)))
-          (if (memv term1 B)
-              (succeed st)
-              (let ((c^ (c-with-B c (cons term1 B))))
-                (succeed (set-c st term2 c^))))))]
+        (define c (lookup-c st term2))
+        (define sub-absent (c-B c))
+        (define bound      (or (c-L c) '()))
+        (define c^ (c-with-B c (cons-new term1 sub-absent)))
+        (define st^ (set-c st term2 c^))
+        ((apply conj (map (lambda (k.v)
+                            (conj (=/= (car k.v) term1)
+                                  (=/= (cdr k.v) term1)))
+                          bound))
+         st^))]
      [else succeed])))
 
 (defrel (removeo set elem set-elem)
@@ -1104,16 +1122,53 @@ Free-Disunification: (cons/c '=/= (listof Free-Goal))
       succeed]
      [(var? alist)
       (lambda (st)
-        (let* ([c   (lookup-c st alist)]
-               [F^  (cons-new key (or (c-F c) '()))]
-               [c^  (c-with-F c F^)]
-               [st^ (set-c st alist c^)])
-          st^))]
+        (define c     (lookup-c st alist))
+        (define free  (or (c-F c) '()))
+        (define bound (or (c-L c) '()))
+        (define c^    (c-with-F c (cons-new key free)))
+        (define st^   (set-c st alist c^))
+        ((apply conj (map (lambda (k.v) (=/= key (car k.v)))
+                          bound))
+         st^))]
      [(pair? alist)
       (fresh (h t)
         (== (car alist) (cons h t))
         (=/= h key)
-        (freeo key (cdr alist)))])))
+        (freeo key (cdr alist)))]
+     [else fail])))
+
+;; Lookup constraint
+(defrel (lookupo key value alist)
+  (listo alist)
+  (project0 (alist)
+    (cond
+     [(null? alist)
+      fail]
+     [(pair? alist)
+      (let ([a (car alist)] [d (cdr alist)])
+        (fresh (K V)
+          (== a (cons K V))
+          (conde
+           [(== K key)  (== V value)]
+           [(=/= K key) (lookupo key value d)])))]
+     [(var? alist)
+      (lambda (st)
+        (define c          (lookup-c st alist))
+        (define free       (or (c-F c) '()))
+        (define bound      (or (c-L c) '()))
+        (define sub-absent (c-B c))
+        (define c^         (c-with-L c (cons (cons key value) bound)))
+        ((conj
+          (apply conj (map (lambda (k) (=/= k key))
+                           free))
+          (apply conj (map (lambda (k.v)
+                             (disj (=/= key (car k.v)) (== (cdr k.v) value)))
+                           bound))
+          (apply conj (map (lambda (s) (conj (=/= s key) (=/= s value)))
+                           sub-absent))
+          (lambda (st)
+            (set-c st alist c^)))
+         st))])))
 
 ;; Derived set constraints
 (define (!uniono l r l+r)
@@ -1240,7 +1295,9 @@ Free-Disunification: (cons/c '=/= (listof Free-Goal))
                                  (apply uniono (replace (lhs a) (rhs a) con))))
                              (c-U old-c))
                         (map (lambda (mem) (freeo mem (rhs a)))
-                             (or (c-F old-c) '())))))))))
+                             (or (c-F old-c) '()))
+                        (map (lambda (k.v) (lookupo (car k.v) (cdr k.v) (rhs a)))
+                             (or (c-L old-c) '())))))))))
 
 
 (define (walk* v S)
@@ -1267,6 +1324,7 @@ Free-Disunification: (cons/c '=/= (listof Free-Goal))
 ; E - mutual exclusivity constraints
 ; U - union constraints
 ; F - free-binding constraints
+; L - lookup constraints
 
 (define (reify x)
   (lambda (st)
@@ -1275,8 +1333,8 @@ Free-Disunification: (cons/c '=/= (listof Free-Goal))
            (R (reify-S v (subst empty-subst-map nonlocal-scope)))
            (relevant-vars (vars v))
            (v (simplify-S (walk* v R) R)))
-      (let*-values (((T D B M E U F) (extract-and-normalize st relevant-vars x))
-                    ((D B M E U F) (drop-irrelevant D B M E U F relevant-vars))
+      (let*-values (((T D B M E U F L) (extract-and-normalize st relevant-vars x))
+                    ((D B M E U F L) (drop-irrelevant D B M E U F L relevant-vars))
                     ((D B A)   (drop-subsumed D B st)))
         (form v
               (walk* D R)
@@ -1286,7 +1344,8 @@ Free-Disunification: (cons/c '=/= (listof Free-Goal))
               (walk* M R)
               (walk* E R)
               (walk* U R)
-              (walk* F R))))))
+              (walk* F R)
+              (walk* L R))))))
 
 (define (vars term)
   (let rec ((term term) (acc '()))
@@ -1346,7 +1405,14 @@ Free-Disunification: (cons/c '=/= (listof Free-Goal))
                                  x))
                          (or (c-F (lookup-c st x)) '())))
                   relevant-vars)))
-  (values T D B M E U F))
+  (define L (append*
+             (map (lambda (x)
+                    (map (lambda (l-lhs)
+                           (cons (walk* l-lhs (state-S st))
+                                 x))
+                         (or (c-L (lookup-c st x)) '())))
+                  relevant-vars)))
+  (values T D B M E U F L))
 
 (define (normalize-diseq st)
   (lambda (S+)
@@ -1360,7 +1426,7 @@ Free-Disunification: (cons/c '=/= (listof Free-Goal))
 ; Drop constraints that are satisfiable in any assignment of the reified
 ; variables, because they refer to unassigned variables that are not part of
 ; the answer, which can be assigned as needed to satisfy the constraint.
-(define (drop-irrelevant D B M E U F relevant-vars)
+(define (drop-irrelevant D B M E U F L relevant-vars)
   (define (all-relevant? t)
     (andmap (lambda (v) (member v relevant-vars))
             (vars t)))
@@ -1369,7 +1435,8 @@ Free-Disunification: (cons/c '=/= (listof Free-Goal))
           (filter all-relevant? M)
           (filter all-relevant? E)
           (filter all-relevant? U)
-          (filter all-relevant? F)))
+          (filter all-relevant? F)
+          (filter all-relevant? L)))
 
 ;; Given two lists and an optional equality procedure between their elements,
 ;; returns three values:
@@ -1573,7 +1640,7 @@ Free-Disunification: (cons/c '=/= (listof Free-Goal))
   (string->symbol
     (string-append "_" "." (number->string n))))
 
-(define (form v D T B A M E U F)
+(define (form v D T B A M E U F L)
   (let ((ft (filter-map
               (lambda (p)
                 (let ((tc-type (car p)) (tc-vars (cdr p)))
@@ -1586,7 +1653,8 @@ Free-Disunification: (cons/c '=/= (listof Free-Goal))
         (fm (remove-duplicates (sort-lex M)))
         (fe (remove-duplicates (sort-E E)))
         (fu (remove-duplicates (sort-U U)))
-        (ff (remove-duplicates (sort-lex F))))
+        (ff (remove-duplicates (sort-lex F)))
+        (fl (remove-duplicates (sort-lex L))))
     (let ((fd (if (null? fd)
                   fd
                   (let ((fd (drop-dot-D fd)))
@@ -1610,13 +1678,17 @@ Free-Disunification: (cons/c '=/= (listof Free-Goal))
                   `((∪₃ ,@fu))))
           (ff (if (null? ff)
                   ff
-                  `((free . ,(drop-dot ff))))))
+                  `((free . ,(drop-dot ff)))))
+          (fl (if (null? fl)
+                  fl
+                  `((lookup . ,(map drop-dots fl))))))
       (cond
        ((and (null? fd) (null? ft) (null? fb) (null? fa)
              (null? fm) (null? fe) (null? fu) (null? ff)
+             (null? fl)
              (not (always-wrap-reified?)))
         v)
-       (else (append `(,v) fd ft fb fa fm fe fu ff))))))
+       (else (append `(,v) fd ft fb fa fm fe fu ff fl))))))
 
 (define (sort-U U)
   (map car U))
@@ -1656,6 +1728,9 @@ Free-Disunification: (cons/c '=/= (listof Free-Goal))
 (define (drop-dot X)
   (map (lambda (t) (list (lhs t) (rhs t)))
        X))
+
+(define (drop-dots obj)
+  (list (caar obj) (cdar obj) (cdr obj)))
 
 ; (Listof (Pair Predicate Ordering))
 (define type-orderings
