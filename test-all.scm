@@ -75,6 +75,9 @@
 (printf "seto-listo-tests.scm\n")
 (load "./seto-listo-tests.scm")
 
+(printf "test-alist.scm\n")
+(load "./test-alist.scm")
+
 ;; Test Indicator
 (begin
   (if test-failed
