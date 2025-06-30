@@ -1138,7 +1138,7 @@ Free-Disunification: (cons/c '=/= (listof Free-Goal))
      [else fail])))
 
 ;; Lookup constraint
-(defrel (lookupo key value alist)
+(defrel (lookupo key alist value)
   (listo alist)
   (project0 (alist)
     (cond
@@ -1150,7 +1150,7 @@ Free-Disunification: (cons/c '=/= (listof Free-Goal))
           (== a (cons K V))
           (conde
            [(== K key)  (== V value)]
-           [(=/= K key) (lookupo key value d)])))]
+           [(=/= K key) (lookupo key d value)])))]
      [(var? alist)
       (lambda (st)
         (define c          (lookup-c st alist))
@@ -1296,7 +1296,7 @@ Free-Disunification: (cons/c '=/= (listof Free-Goal))
                              (c-U old-c))
                         (map (lambda (mem) (freeo mem (rhs a)))
                              (or (c-F old-c) '()))
-                        (map (lambda (k.v) (lookupo (car k.v) (cdr k.v) (rhs a)))
+                        (map (lambda (k.v) (lookupo (car k.v) (rhs a) (cdr k.v)))
                              (or (c-L old-c) '())))))))))
 
 
@@ -1681,7 +1681,7 @@ Free-Disunification: (cons/c '=/= (listof Free-Goal))
                   `((free . ,(drop-dot ff)))))
           (fl (if (null? fl)
                   fl
-                  `((lookup . ,(map drop-dots fl))))))
+                  `((lookup . ,(drop-dot-L fl))))))
       (cond
        ((and (null? fd) (null? ft) (null? fb) (null? fa)
              (null? fm) (null? fe) (null? fu) (null? ff)
@@ -1729,8 +1729,10 @@ Free-Disunification: (cons/c '=/= (listof Free-Goal))
   (map (lambda (t) (list (lhs t) (rhs t)))
        X))
 
-(define (drop-dots obj)
-  (list (caar obj) (cdar obj) (cdr obj)))
+(define (drop-dot-L obj)
+  (map
+   (lambda (o) (list (caar o) (cdr o) (cdar o)))
+   obj))
 
 ; (Listof (Pair Predicate Ordering))
 (define type-orderings
