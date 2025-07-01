@@ -46,6 +46,64 @@ If we did, we would also get unification for free. The problem is that keeping t
 
 * List semantics
 
-Alternatively, what if we model dictionaries as lists? In theory, all we'd really need would be a freshness constraint: ~assoco~ is just ~cons~. The problem with this is that unification would break. Maybe this is a valuable minimum viable product?
+Alternatively, what if we model dictionaries as alists? In theory, all we'd really need would be a freshness constraint: ~assoco~ is just ~cons~. The problem with this is that unification would break. Maybe this is a valuable minimum viable product?
 
-#  LocalWords:  reifier
+I've now implemented a ~freeo~ constraint, which ensures that an element is not contained in an alist. Will also wants a lazy ~lookupo~ constraint, which seems like it may very quickly explode in complexity, as the eager domain constraints showed.
+
+Suppose, for some variable ~X~, with lookup constraints ~L~ and non-lookup constraints ~N~, we wish to add the lookup constraint that ~A~ map to ~B~. The following are then corollaries:
+- ~(listo X)~
+- ∀ (K, V) ∈ L, ~(disj (\=/= A K) (== V B))~
+- ∀ K ∈ N, ~(\=/= A K)~
+
+If ~X~ were a cons-pair with ~car~ F and ~cdr~ R:
+- ~(fresh (K V) (\=\= F (cons K V)) (conde [(\=\= K A) (\=\= V B)] [(\=/\= K A)]))~
+
+* Lazy Association Lists
+
+This branch provides three new constraints:
+
+- The ~(listo l)~ constraint, which declares that ~l~ must be a list
+  - It is lazy, meaning the constraint does not force ~l~ to choose between a ~pair?~ or ~null?~ immediately.
+  - Like other type constraints, it is disjoint from other types, such as ~sym~, ~set~, ~num~, etc.
+- The ~(freeo k a)~ constraint, which declares that ~a~ is an association list which does not bind ~k~
+  - It is lazy, meaning the constraint does not force ~a~ to choose between a ~pair?~ or ~null?~ immediately.
+  - ~k~ can be an arbitrary type and ~a~ must be a list
+  - Each element of ~a~ is unified with a pair whose ~car~ is not unifiable with ~k~
+- The ~(lookupo k a v)~ constraint, which declares that ~a~ is an association list which binds ~k~ to ~v~
+  - It is lazy, meaning the constraint does not force ~a~ to choose between a ~pair?~ or ~null?~ immediately.
+  - ~k~ and ~v~ may be of arbitrary types and ~a~ must be a list
+  - The constraint only ever returns the closest binding if there are multiple:
+
+    #+begin_src scheme
+      (test "lookup shadowing"
+        (run* (q)
+          (lookupo 1 '((1 . 2) (1 . 4) (a . b)) q))
+        '(2))
+    #+end_src
+  - If multiple ~lookupo~ constraints are put on the same variable with the same key, their results must unify
+
+    #+begin_src scheme
+      (test "partially ground constraints (2)"
+        (run* (r p q)
+          (lookupo 1 r p)
+          (lookupo 1 r q))
+        '(((_.0 _.1 _.1) (lst _.0) (lookup (1 _.0 _.1)))))
+    #+end_src
+  - ~lookupo~ and ~freeo~ should play nicely: any key which is ~free~ on a given alist list cannot have a binding.
+
+    #+begin_src scheme
+      (test "lookupo vs free (2)"
+        (run* (a b c)
+          (lookupo a c b)
+          (freeo 1 c))
+        '(((_.0 _.1 _.2)
+           (=/= ((_.0 1)))
+           (lst _.2)
+           (free (1 _.2))
+           (lookup (_.0 _.2 _.1)))))
+    #+end_src
+  - ~lookupo~ and ~absento~ should play nicely: if a (potentially lazy) alist is asserted to not contain some value ~q~, then any associations it has cannot contain those values either.
+
+Because these constraints work on ordinary association lists, one can construct association lists as normal: ~(cons (cons k v) a)~ does not force a value on ~a~. Note: it also does not force ~a~ to be a list, as other constraints here do.
+
+#  LocalWords:  reifier alist
