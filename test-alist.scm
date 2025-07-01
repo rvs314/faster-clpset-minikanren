@@ -101,6 +101,16 @@
     (lookupo 1 '((1 . 2)) 2))
   '(_.0))
 
+(test "positive lookup against improper list"
+  (run* (q)
+    (lookupo q `((1 . 2) . 5) 2))
+  '())
+
+(test "positive lookup against improper alist list"
+  (run* (q)
+    (lookupo q `((1 . 2) 5) 2))
+  '(1))
+
 (test "ground lookup search"
   (run* (_)
     (lookupo 1 '((() . ()) (p . q) (a . b) (1 . 2)) 2))
@@ -122,9 +132,9 @@
   '())
 
 (test "lookup shadowing"
-  (run* (_)
-    (lookupo 1 '((1 . 2) (1 . 4) (a . b)) 2))
-  '(_.0))
+  (run* (q)
+    (lookupo 1 '((1 . 2) (1 . 4) (a . b)) q))
+  '(2))
 
 (test "lookup failing shadowing"
   (run* (_)
@@ -274,8 +284,8 @@
 
 (test "lookupo vs absento"
   (run* (a b)
-    (absento a b)
-    (lookupo a b 1))
+    (lookupo a b 1)
+    (absento a b))
   '())
 
 (test "absento & lookupo"
