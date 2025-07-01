@@ -67,11 +67,11 @@ This branch provides three new constraints:
   - Like other type constraints, it is disjoint from other types, such as ~sym~, ~set~, ~num~, etc.
 - The ~(freeo k a)~ constraint, which declares that ~a~ is an association list which does not bind ~k~
   - It is lazy, meaning the constraint does not force ~a~ to choose between a ~pair?~ or ~null?~ immediately.
-  - ~k~ can be an arbitrary type and ~a~ must be a list
+  - ~k~ may be of an arbitrary type and ~a~ must be an alist
   - Each element of ~a~ is unified with a pair whose ~car~ is not unifiable with ~k~
 - The ~(lookupo k a v)~ constraint, which declares that ~a~ is an association list which binds ~k~ to ~v~
   - It is lazy, meaning the constraint does not force ~a~ to choose between a ~pair?~ or ~null?~ immediately.
-  - ~k~ and ~v~ may be of arbitrary types and ~a~ must be a list
+  - ~k~ and ~v~ may be of arbitrary types and ~a~ must be an alist
   - The constraint only ever returns the closest binding if there are multiple:
 
     #+begin_src scheme
