@@ -856,13 +856,6 @@ Free-Disunification: (cons/c '=/= (listof Free-Goal))
 (define free-disjunction (free-extrema 'disj))
 (define free-conjunction (free-extrema 'conj))
 
-;; Asserts that the variable LEFT is not equal to the object RIGHT
-(defrel (primitive-disequality left right)
-  (if (var? right)
-      (add-to-D right (list (cons right left)))
-      succeed)
-  (add-to-D left (list (cons left right))))
-
 ;; (Listof Association) -> Goal
 ;; Takes a list of (atomic) associations and returns a goal
 ;; which ensure at least one of them does not hold.
