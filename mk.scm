@@ -257,10 +257,10 @@ Ex:
 (define (normalize-set set s)
   (cond
    [(null-set? set)
-    set]
-   [(nonempty-set? set)
+    '#(set)]
+   [(set? set)
     (make-set
-     (set-head set)
+     (remove-duplicates (set-head set))
      (normalize-set (set-tail set) s))]
    [(var? set)
     (let ([walked (walk set s)])
