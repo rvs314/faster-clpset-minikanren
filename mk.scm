@@ -1248,14 +1248,19 @@ Free-Disunification: (cons/c '=/= (listof Free-Goal))
 (define (infer-setso term)
   (apply conj (map seto (infer-set-constraints term))))
 
-(defrel (== u v)
-  (infer-setso u)
-  (infer-setso v)
-  (lambda (st)
-    (let*-bind ([st^.added (unify u v st)])
-      (let* ([st^    (car st^.added)]
-             [added  (cdr st^.added)])
-        (bind-foldl st^ (map update-constraints added))))))
+(define (== u v)
+  ;; This should not be a (fresh () ...) or a defrel,
+  ;; as those forms introduce a suspension, which hurts
+  ;; performance
+  ;; - rvs (7/9/25)
+  (conj
+   (infer-setso u)
+   (infer-setso v)
+   (lambda (st)
+     (let*-bind ([st^.added (unify u v st)])
+       (let* ([st^    (car st^.added)]
+              [added  (cdr st^.added)])
+         (bind-foldl st^ (map update-constraints added)))))))
 
 (define (replace from to list)
   (cond
