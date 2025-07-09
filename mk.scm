@@ -1051,6 +1051,10 @@ Free-Disunification: (cons/c '=/= (listof Free-Goal))
          st^))]
      [else succeed])))
 
+(defrel (union+o l r l+r)
+  (disjo l r)
+  (uniono l r l+r))
+
 (defrel (removeo set elem set-elem)
   (== set (set-cons elem set-elem))
   (!ino elem set-elem))
@@ -1180,6 +1184,12 @@ Free-Disunification: (cons/c '=/= (listof Free-Goal))
 
 (define (subseteqo small big)
   (uniono small big big))
+
+(defrel (subseto small big)
+  (uniono small big big)
+  (fresh (x)
+    (ino x big)
+    (!ino x small)))
 
 ; (State, Any -> SimpleConstraint), State, List -> SimpleConstraint
 ; Fold lst with proc and initial value init. If proc ever returns #f,
