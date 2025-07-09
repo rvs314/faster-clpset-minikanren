@@ -601,6 +601,12 @@
         (run* (q)
           (seto (set* 1 q)))
         '((_.0 (set _.0))))
+
+  (test "Type constraints also perform set inference"
+    (run* (q)
+      (listo (list (set-cons 1 q))))
+    '((_.0 (set _.0))))
+
   (test "Constraint inference only occurs MK-side"
         (run* (q)
           (let ([_ (set* 1 q)])

@@ -665,23 +665,25 @@ The scope of each RHS has access to prior binders, à la let*
 ; TypeConstraint -> (Term -> Goal)
 (define (apply-type-constraint tc)
   (lambda (u)
-    (lambda (st)
-      (let ((type-pred (type-constraint-predicate tc))
-            (type-prop (or (type-constraint-propagator tc)
-                           atomic-propagator)))
-        (let ((term (walk u (state-S st))))
-          (cond
-            ;; ((type-pred term) st)
-            ((type-pred term)
-             ((type-prop term) st))
-            ((var? term)
-             (let* ((c (lookup-c st term))
-                    (T (c-T c)))
-               (cond
-                 ((eq? T tc) st)
-                 ((not T) (set-c st term (c-with-T c tc)))
-                 (else #f))))
-            (else #f)))))))
+    (conj
+     (infer-setso u)
+     (lambda (st)
+       (let ((type-pred (type-constraint-predicate tc))
+             (type-prop (or (type-constraint-propagator tc)
+                            atomic-propagator)))
+         (let ((term (walk u (state-S st))))
+           (cond
+             ;; ((type-pred term) st)
+             ((type-pred term)
+              ((type-prop term) st))
+             ((var? term)
+              (let* ((c (lookup-c st term))
+                     (T (c-T c)))
+                (cond
+                  ((eq? T tc) st)
+                  ((not T) (set-c st term (c-with-T c tc)))
+                  (else #f))))
+             (else #f))))))))
 
 (define-syntax declare-type-constraints
   (syntax-rules ()
@@ -1236,17 +1238,21 @@ Free-Disunification: (cons/c '=/= (listof Free-Goal))
    [(pair? term) (append (infer-set-constraints (car term))
                          (infer-set-constraints (cdr term)))]
    [(nonempty-set? term)
-    (let ([con-head (apply append
-                           (map infer-set-constraints (set-head term)))]
+    (let ([con-head (append-map infer-set-constraints (set-head term))]
           [con-tail (infer-set-constraints (set-tail term))])
       (cons (set-tail term) (append con-tail con-head)))]
    [else         '()]))
 
-(define (== u v)
+;; Term -> Goal
+;; Walks the term structure, ensuring
+(define (infer-setso term)
+  (apply conj (map seto (infer-set-constraints term))))
+
+(defrel (== u v)
+  (infer-setso u)
+  (infer-setso v)
   (lambda (st)
-    (let*-bind ([st (bind-foldl st (map seto (infer-set-constraints u)))]
-                [st (bind-foldl st (map seto (infer-set-constraints v)))]
-                [st^.added (unify u v st)])
+    (let*-bind ([st^.added (unify u v st)])
       (let* ([st^    (car st^.added)]
              [added  (cdr st^.added)])
         (bind-foldl st^ (map update-constraints added))))))
