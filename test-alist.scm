@@ -77,16 +77,18 @@
   (load "./simple-interp.scm")
 
   (test "current interpreter behvaior"
-    (run 2 (env val)
+    (run 3 (env val)
       (eval-expro `(lambda (x) x) env val))
     '((() (closure x x ()))
       ((((_.0 . _.1)) (closure x x ((_.0 . _.1))))
-       (=/= ((_.0 lambda))))))
+       (=/= ((_.0 lambda))))
+      ((((_.0 . _.1) (_.2 . _.3)) (closure x x ((_.0 . _.1) (_.2 . _.3))))
+       (=/= ((_.0 lambda)) ((_.2 lambda))))))
 
   (set! not-in-envo freeo)
 
   (test "potential interpreter behvaior"
-    (run 2 (env val)
+    (run* (env val)
       (eval-expro `(lambda (x) x) env val))
     '(((_.0 (closure x x _.0))
        (lst _.0)
