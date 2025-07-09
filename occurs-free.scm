@@ -8,7 +8,8 @@
   (load "mk-vicare.scm")
   (load "sets.scm")
   (load "mk.scm")
-  (load "test-check.scm"))
+  ;; Don't reload test-check; it resets test-failed
+  #;(load "test-check.scm"))
 
 ;; William E. Byrd
 ;; Saturday May 24, 2025

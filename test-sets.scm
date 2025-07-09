@@ -637,6 +637,12 @@
       (disjo (set* 1 p) q))
     '(((_.0 _.1) (set _.0 _.1) (∉ (1 _.1)) (∥ (_.0 _.1)))))
 
+  (test "!ino constraint performs set inference"
+    (run* (q)
+      (fresh (v)
+        (!ino (set-cons 1 q) v)))
+    '((_.0 (set _.0))))
+
   (test "Constraint inference only occurs MK-side"
         (run* (q)
           (let ([_ (set* 1 q)])
@@ -716,7 +722,7 @@
   (test "descending into set-cons"
         (run* (p)
           (absento 2 (set* 0 1 p)))
-        '((_.0 (sub-absento (2 _.0)))))
+        '((_.0 (set _.0) (absento (2 _.0)))))
   (test "direct application of sub-absento"
         (run* (p)
           (sub-absento 2 p))
