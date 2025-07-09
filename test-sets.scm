@@ -607,6 +607,36 @@
       (listo (list (set-cons 1 q))))
     '((_.0 (set _.0))))
 
+  (test "Absento constraints perform set inference"
+    (run* (q)
+      (absento 1 (set-cons 2 q)))
+    '((_.0 (set _.0) (absento (1 _.0)))))
+
+  (test "Uniono constraints perform set inference"
+    (run* (p q r)
+      (uniono (set* 1 p) q r))
+    '(((_.0 _.1 #(set (1) _.2))
+       (set _.0 _.1 _.2)
+       (∉ (1 _.0) (1 _.1) (1 _.2))
+       (∪₃ (_.0 _.1 _.2)))
+      ((_.0 #(set (1) _.1) #(set (1) _.2))
+       (set _.0 _.1 _.2)
+       (∉ (1 _.0) (1 _.1) (1 _.2))
+       (∪₃ (_.0 _.1 _.2)))
+      ((#(set (1) _.0) _.1 #(set (1) _.2))
+       (set _.0 _.1 _.2)
+       (∉ (1 _.0) (1 _.1) (1 _.2))
+       (∪₃ (_.0 _.1 _.2)))
+      ((#(set (1) _.0) #(set (1) _.1) #(set (1) _.2))
+       (set _.0 _.1 _.2)
+       (∉ (1 _.0) (1 _.1) (1 _.2))
+       (∪₃ (_.0 _.1 _.2)))))
+
+  (test "Disjointedness constraints perform set inference"
+    (run* (p q)
+      (disjo (set* 1 p) q))
+    '(((_.0 _.1) (set _.0 _.1) (∉ (1 _.1)) (∥ (_.0 _.1)))))
+
   (test "Constraint inference only occurs MK-side"
         (run* (q)
           (let ([_ (set* 1 q)])

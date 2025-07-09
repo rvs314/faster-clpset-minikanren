@@ -929,9 +929,10 @@ Free-Disunification: (cons/c '=/= (listof Free-Goal))
      [else
       (free-disunification left right)])))
 
+
 ;; Term, Term -> Goal
 ;; Holds IFF and the left and right objects are different
-(define (=/= left right)
+(defrel-primitive (=/= left right)
   (lambda (st)
     ((free-goal->higher-order-goal (disunify left right (state-S st))) st)))
 
@@ -980,7 +981,8 @@ Free-Disunification: (cons/c '=/= (listof Free-Goal))
 ;; Term, Term -> Goal
 ;; Goal which succeeds iff the item is not a member of a given set
 (defrel (!ino i s)
-  (seto s)
+  (infer-setso i)
+  (seto s) ; already infers sets
   (project0 (s)
     (cond
      [(set-pair? s)
@@ -1030,7 +1032,7 @@ Free-Disunification: (cons/c '=/= (listof Free-Goal))
 
 ;; Term, Term -> Goal
 ;; Asserts that `term1` cannot occur in any subterm of `term2`
-(define (sub-absento term1 term2)
+(defrel-primitive (sub-absento term1 term2)
   (project0 (term1 term2)
     (cond
      [(pair? term2)
@@ -1114,6 +1116,7 @@ Free-Disunification: (cons/c '=/= (listof Free-Goal))
 
 ;; freeo constraint
 (defrel (freeo key alist)
+  (infer-setso key)
   (listo alist)
   (project0 (alist)
     (cond
@@ -1138,6 +1141,8 @@ Free-Disunification: (cons/c '=/= (listof Free-Goal))
 
 ;; Lookup constraint
 (defrel (lookupo key alist value)
+  (infer-setso key)
+  (infer-setso value)
   (listo alist)
   (project0 (alist)
     (cond
@@ -1248,19 +1253,20 @@ Free-Disunification: (cons/c '=/= (listof Free-Goal))
 (define (infer-setso term)
   (apply conj (map seto (infer-set-constraints term))))
 
-(define (== u v)
-  ;; This should not be a (fresh () ...) or a defrel,
-  ;; as those forms introduce a suspension, which hurts
-  ;; performance
-  ;; - rvs (7/9/25)
-  (conj
-   (infer-setso u)
-   (infer-setso v)
-   (lambda (st)
-     (let*-bind ([st^.added (unify u v st)])
-       (let* ([st^    (car st^.added)]
-              [added  (cdr st^.added)])
-         (bind-foldl st^ (map update-constraints added)))))))
+(define-syntax defrel-primitive
+  (syntax-rules ()
+    [(defrel-primitive (name arg ...) body ...)
+     (define (name arg ...)
+       (conj
+        (infer-setso arg) ...
+        body ...))]))
+
+(defrel-primitive (== u v)
+  (lambda (st)
+    (let*-bind ([st^.added (unify u v st)])
+      (let* ([st^    (car st^.added)]
+             [added  (cdr st^.added)])
+        (bind-foldl st^ (map update-constraints added))))))
 
 (define (replace from to list)
   (cond
