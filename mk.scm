@@ -1170,9 +1170,8 @@ Free-Disunification: (cons/c '=/= (listof Free-Goal))
 (define (!uniono l r l+r)
   (fresh (N)
     (conde
-     [(ino N l+r) (!ino N l) (!ino N r)]
-     [(ino N r)   (!ino N l+r)]
-     [(!ino N r)  (ino N l) (!ino N l+r)])))
+     [(ino N l+r)  (!ino N l) (!ino N r)]
+     [(!ino N l+r) (disj (ino N r) (ino N l))])))
 
 (define (!disjo p q)
   (fresh (N)
