@@ -929,6 +929,14 @@ Free-Disunification: (cons/c '=/= (listof Free-Goal))
      [else
       (free-disunification left right)])))
 
+(define-syntax defrel-primitive
+  (syntax-rules ()
+    [(defrel-primitive (name arg args ...) body ...)
+     (define (name arg args ...)
+       (conj
+        (infer-setso arg)
+        (infer-setso args) ...
+        body ...))]))
 
 ;; Term, Term -> Goal
 ;; Holds IFF and the left and right objects are different
@@ -1253,14 +1261,6 @@ Free-Disunification: (cons/c '=/= (listof Free-Goal))
 (define (infer-setso term)
   (apply conj (map seto (infer-set-constraints term))))
 
-(define-syntax defrel-primitive
-  (syntax-rules ()
-    [(defrel-primitive (name arg args ...) body ...)
-     (define (name arg args ...)
-       (conj
-        (infer-setso arg)
-        (infer-setso args) ...
-        body ...))]))
 
 (defrel-primitive (== u v)
   (lambda (st)
