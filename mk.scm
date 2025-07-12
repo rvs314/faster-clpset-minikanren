@@ -861,7 +861,7 @@ Free-Disunification: (cons/c '=/= (listof Free-Goal))
 ;; (Listof Association) -> Goal
 ;; Takes a list of (atomic) associations and returns a goal
 ;; which ensure at least one of them does not hold.
-(define (primitive-disequality disequalities)
+(define (primitive-disunification disequalities)
   (cond
    [(null? disequalities) fail]
    [(pair? disequalities)
@@ -874,7 +874,7 @@ Free-Disunification: (cons/c '=/= (listof Free-Goal))
              (map (lambda (var)
                     (add-to-D var disequalities))
                   activated-variables)))]
-   [else (error 'primitive-disequality "Requires a list of associations")]))
+   [else (error 'primitive-disunification "Requires a list of associations")]))
 
 ;; Free-Goal -> Goal
 (define (free-goal->higher-order-goal gl)
@@ -885,7 +885,7 @@ Free-Disunification: (cons/c '=/= (listof Free-Goal))
           [other-goals (filter (negate free-disunification?) (free-subterms gl))])
       (apply
        disj
-       (primitive-disequality
+       (primitive-disunification
         (map (compose list->pair free-subterms) disunifications))
        (map free-goal->higher-order-goal other-goals)))]
    [(free-disjunction? gl)
@@ -894,7 +894,7 @@ Free-Disunification: (cons/c '=/= (listof Free-Goal))
     (apply conj (map free-goal->higher-order-goal (free-subterms gl)))]
    [(free-disunification? gl)
     (let ([subterms (free-subterms gl)])
-      (primitive-disequality (list (cons (car subterms) (cadr subterms)))))]
+      (primitive-disunification (list (cons (car subterms) (cadr subterms)))))]
    [(higher-order-goal? gl)
     (cadr gl)]
    [else (error 'free-goal->higher-order-goal "Invalid free goal" gl)]))
@@ -1255,10 +1255,11 @@ Free-Disunification: (cons/c '=/= (listof Free-Goal))
 
 (define-syntax defrel-primitive
   (syntax-rules ()
-    [(defrel-primitive (name arg ...) body ...)
-     (define (name arg ...)
+    [(defrel-primitive (name arg args ...) body ...)
+     (define (name arg args ...)
        (conj
-        (infer-setso arg) ...
+        (infer-setso arg)
+        (infer-setso args) ...
         body ...))]))
 
 (defrel-primitive (== u v)
