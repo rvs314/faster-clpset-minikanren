@@ -2,6 +2,8 @@
 
 A modification of https://github.com/michaelballantyne/faster-minikanren with constraints for solving set queries.
 
+The code in `metaKanren-sets/metaKanren` has been adapted from `https://github.com/iambrj/metaKanren`--please see its README and LICENSE files.
+
 ## Running
 
 ### Racket
