@@ -13,7 +13,7 @@
 ;; William E. Byrd
 ;; Saturday May 24, 2025
 ;; Updated Friday June 20, 2025
-
+;; Updated Thursday July 17, 2025
 
 ;; Tabling, implemented with CLP(Set)
 
@@ -53,3 +53,59 @@
 (test "patho-tabled"
   (run* (q) (path-tabledo 'a q (set)))
   '(b a d))
+
+
+;; Similar to above, but using a set of edges to define the graph,
+;; rather than a fixed `arco` relation.
+
+;; Non-tabled version
+
+(define (path-with-edgeso x y edge-set)
+  (conde
+    ((ino `(,x -> ,y) edge-set))
+    ((fresh (z)
+       (ino `(,x -> ,z) edge-set)
+       (path-with-edgeso z y edge-set)))))
+
+(test "path-with-edgeso"
+  (run 10 (q) (path-with-edgeso 'a q (set '(a -> b)
+                                          '(b -> a)
+                                          '(b -> d))))
+  '(b a d b a d b a d b))
+
+
+;; Tabled version
+
+(define (path-with-edges-tabledo x y edge-set table)
+  (conde
+    ((!ino y table)
+     (ino `(,x -> ,y) edge-set))
+    ((fresh (z)
+       (ino `(,x -> ,z) edge-set)
+       (fresh (table^)
+         (!ino z table)
+         (== (set-cons z table) table^)
+         (path-with-edges-tabledo z y edge-set table^))))))
+
+(test "path-with-edges-tabledo-1"
+  (run* (q) (path-with-edges-tabledo 'a
+                                     q
+                                     (set '(a -> b)
+                                          '(b -> a)
+                                          '(b -> d))
+                                     (set)))
+  '(b a d))
+
+(test "path-with-edges-tabledo-2"
+  (run 3 (q) (path-with-edges-tabledo 'a
+                                      'b
+                                      q
+                                      (set)))
+  '((#(set ((a -> b)) _.0)
+     (set _.0))
+    (#(set ((_.0 -> b) (a -> _.0)) _.1)
+     (=/= ((_.0 b)))
+     (set _.1))
+    (#(set ((_.0 -> _.1) (_.1 -> b) (a -> _.0)) _.2)
+     (=/= ((_.0 _.1)) ((_.0 b)) ((_.1 b)))
+     (set _.2))))
