@@ -357,7 +357,7 @@ The scope of each RHS has access to prior binders, à la let*
        (succeed st))]
     [(log expr ...)
      (lambda (st)
-       (display (list (list 'expr '=> ((reify expr) st)) ...))
+       (display ((reify (list (list 'expr '=> expr) ...)) st))
        (newline)
        (succeed st))]))
 
@@ -1205,6 +1205,17 @@ Free-Disunification: (cons/c '=/= (listof Free-Goal))
   (fresh (x)
     (ino x big)
     (!ino x small)))
+
+(defrel (subtracto s1 obj s2)
+  (seto s1)
+  (seto s2)
+  (!ino obj s2)
+  (conde
+   [(== s1 (set-cons obj s2))]
+   [(== s1 s2)]))
+
+(defrel (singletono obj st)
+  (== st (set obj)))
 
 ; (State, Any -> SimpleConstraint), State, List -> SimpleConstraint
 ; Fold lst with proc and initial value init. If proc ever returns #f,

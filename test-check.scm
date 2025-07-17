@@ -119,3 +119,32 @@
   (case-lambda
     [()  (flip 2)]
     [(k) (zero? (random k))]))
+
+;; We shadow the normal `take` name, so this
+;; is a lazy impl of take on lists
+(define (takel k lst)
+  (if (zero? k)
+      '()
+      (cons (car lst)
+            (takel (- k 1) (cdr lst)))))
+
+;; Test which where only the first few listed results are actually
+;; checked, but the test ensures that the required number of examples
+;; exist
+(define-syntax test-abridged
+  (syntax-rules (run)
+    [(test-abridged name
+       (run count (v ...)
+         body ...)
+       expected)
+     (begin
+       (printf "Testing ~a~%" 'name)
+       (let* ((ex expected)
+              (rn (run count (v ...) body ...)))
+         (unless (= (length rn) count)
+           (failf "Test ~a: Expected ~a responses back, but got ~a~%"
+                  'name count (length rn)))
+         (unless (equal? (takel (length ex) rn) ex)
+           (failf "Test ~a: Mismatch in the first ~a results:~%Expected: ~a~%Computed: ~a~%"
+                  'name (length ex) ex (takel (length ex) rn))))
+       #t)]))
