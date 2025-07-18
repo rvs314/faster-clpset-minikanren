@@ -112,4 +112,29 @@
   (run* (env val)
     (eval-expro '(lambda (x) x) env val))
   '(((_.0 (closure x x _.0)) (lst _.0) (free (lambda _.0)))))
-  
+
+
+(test "Sub-absento jumpscare"
+  (run* (x)
+    (absento '#(set) `#(set (1) ,x)))
+  '((_.0 (set _.0) (sub-absento (#(set) _.0)))))
+
+(test "Absento jumpscare"
+  (run* (p)
+    (sub-absento 3 `#(set (1) ,p)))
+  '((_.0 (set _.0) (absento (3 _.0)))))
+
+(test "Duplication"
+  (run* (p)
+    (ino 2 `#(set (2 ,p 2))))
+  '(_.0 2 _.0))
+
+(test "freeo & lookupo"
+  (run* (p q r)
+    (freeo p r)
+    (lookupo q r q))
+  '(((_.0 _.1 _.2)
+     (=/= ((_.0 _.1)))
+     (lst _.2)
+     (free (_.0 _.2))
+     (lookup (_.1 _.2 _.1)))))

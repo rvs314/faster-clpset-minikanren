@@ -47,13 +47,12 @@
        (arco x z)
        (fresh (table^)
          (!ino z table)
-         (== (set-cons z table) table^)
+         (== `#(set (,z) ,table) table^)
          (path-tabledo z y table^))))))
 
 (test "patho-tabled"
   (run* (q) (path-tabledo 'a q (set)))
   '(b a d))
-
 
 ;; Similar to above, but using a set of edges to define the graph,
 ;; rather than a fixed `arco` relation.
@@ -68,9 +67,9 @@
        (path-with-edgeso z y edge-set)))))
 
 (test "path-with-edgeso"
-  (run 10 (q) (path-with-edgeso 'a q (set '(a -> b)
-                                          '(b -> a)
-                                          '(b -> d))))
+  (run 10 (q) (path-with-edgeso 'a q '#(set ((a -> b)
+                                             (b -> a)
+                                             (b -> d)))))
   '(b a d b a d b a d b))
 
 
@@ -84,23 +83,23 @@
        (ino `(,x -> ,z) edge-set)
        (fresh (table^)
          (!ino z table)
-         (== (set-cons z table) table^)
+         (== `#(set (,z) ,table) table^)
          (path-with-edges-tabledo z y edge-set table^))))))
 
 (test "path-with-edges-tabledo-1"
   (run* (q) (path-with-edges-tabledo 'a
                                      q
-                                     (set '(a -> b)
-                                          '(b -> a)
-                                          '(b -> d))
-                                     (set)))
+                                     '#(set ((a -> b)
+                                             (b -> a)
+                                             (b -> d)))
+                                     '#(set)))
   '(b a d))
 
 (test "path-with-edges-tabledo-2"
   (run 3 (q) (path-with-edges-tabledo 'a
                                       'b
                                       q
-                                      (set)))
+                                      '#(set)))
   '((#(set ((a -> b)) _.0)
      (set _.0))
     (#(set ((_.0 -> b) (a -> _.0)) _.1)
