@@ -1,6 +1,9 @@
 # faster-clpset-miniKanren
 
-A modification of https://github.com/michaelballantyne/faster-minikanren with constraints for solving set queries.
+This is an implementation of miniKanren which adds a number of constraints for reasoning about finite sets and association lists.
+The set constraints are those from ["Sets and constraint logic programming" by Dovier et al](https://doi.org/10.1145/365151.365169).
+These constraints were first ported to miniKanren in the [clpset-miniKanren by Nada Amin](https://github.com/namin/clpset-miniKanren).
+This is an fork of [faster-miniKanren by Michael Ballantyne](https://github.com/michaelballantyne/faster-minikanren) which includes those new constraints.
 
 The code in `metaKanren-sets/metaKanren` has been adapted from `https://github.com/iambrj/metaKanren`--please see its README and LICENSE files.
 
@@ -8,7 +11,7 @@ The code in `metaKanren-sets/metaKanren` has been adapted from `https://github.c
 
 ### Racket
 
-Currently, racket is not supported for this variant of miniKanren, though support is possible in theory. The original faster-minikanren is written in the intersection of both racket and chez scheme, which does not happen to include disjoint record types with custom equality predicates (both languages have them, but use different syntax). The racket source files currently in the project are vestigial, with the hope that racket support can be re-added.
+Currently, racket is not supported for this variant of miniKanren, though support is possible in theory. The original faster-minikanren is written in the intersection of both racket and chez scheme, but this implementation has only targeted chez. The racket source files currently in the project are vestigial, with the hope that racket support can be re-added.
 
 ### Vicare and Chez Scheme
 
