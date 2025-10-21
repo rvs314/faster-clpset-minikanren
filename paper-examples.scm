@@ -114,6 +114,9 @@
   '(((_.0 (closure x x _.0)) (lst _.0) (free (lambda _.0)))))
 
 
+(run* (x)
+  (absento 2 `#(set (1) ,x)))
+
 (test "Sub-absento jumpscare"
   (run* (x)
     (absento '#(set) `#(set (1) ,x)))

@@ -1,9 +1,13 @@
+[![arXiv](https://img.shields.io/badge/arXiv-2510.03170-b31b1b.svg?style=for-the-badge)](https://doi.org/10.48550/arXiv.2510.03170)
+
 # faster-clpset-miniKanren
 
 This is an implementation of miniKanren which adds a number of constraints for reasoning about finite sets and association lists.
 The set constraints are those from ["Sets and constraint logic programming" by Dovier et al](https://doi.org/10.1145/365151.365169).
 These constraints were first ported to miniKanren in the [clpset-miniKanren by Nada Amin](https://github.com/namin/clpset-miniKanren).
-This is an fork of [faster-miniKanren by Michael Ballantyne](https://github.com/michaelballantyne/faster-minikanren) which includes those new constraints.
+This is a fork of [faster-miniKanren by Michael Ballantyne](https://github.com/michaelballantyne/faster-minikanren) which includes those new constraints.
+
+For more information, see [the paper](https://doi.org/10.48550/arXiv.2510.03170), presented as part of the 2025 miniKanren workshop.
 
 The code in `metaKanren-sets/metaKanren` has been adapted from `https://github.com/iambrj/metaKanren`--please see its README and LICENSE files.
 
