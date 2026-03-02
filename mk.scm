@@ -498,7 +498,7 @@ The scope of each RHS has access to prior binders, à la let*
        (let*-bind ([st.added-car (unify (car u) (car v) st)]
                    [st.added-cdr (unify (cdr u) (cdr v) (car st.added-car))])
          (cons (car st.added-cdr) (append (cdr st.added-car) (cdr st.added-cdr)))))
-      ((equal? u v) (cons st empty-state))
+      ((equal? u v) (cons st '()))
       (else #f))))
 
 ; Term, Substitution -> Term
@@ -970,7 +970,7 @@ Free-Disunification: (cons/c '=/= (listof Free-Goal))
        [(ino i (set-rest s))])]
      [(var? s)
       (fresh (k)
-        (seto k)
+        (seto s)
         (== s (set-cons i k)))]
      [else          fail])))
 
